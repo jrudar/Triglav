@@ -2,7 +2,7 @@
 
 ### Install
 Once downloaded, go to the location of the download and type:
-    pip install mECFS-1.0.0.dev0.tar.gz
+    pip install mECFS-1.0.0.dev.tar.gz
     
 ### Class Parameters
     Inputs:
