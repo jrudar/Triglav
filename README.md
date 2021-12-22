@@ -23,7 +23,7 @@ Once downloaded, go to the location of the download and type:
 
     use_xgbt: bool, default = True
         Specifies if XGB Trees will be used to detect interactions between
-        features. If False, Extremely Randomized Trees will be used.
+        features. If 'False', Extremely Randomized Trees will be used.
 
     Returns:
 
@@ -51,7 +51,7 @@ Once downloaded, go to the location of the download and type:
         Returns:
 
         X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
-        the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
+        the number of features (taxa, OTUs, ASVs, etc). 'p' <= 'm'
         
 ### Example Usage
 
