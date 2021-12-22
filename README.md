@@ -27,7 +27,7 @@ Once downloaded, go to the location of the download and type:
 
     Returns:
 
-    An mECFS object.
+    A mECFS object.
             
 ### Fit Parameters
         Inputs:
