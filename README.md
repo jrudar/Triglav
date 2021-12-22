@@ -23,8 +23,7 @@ Once downloaded, go to the location of the download and type:
 
     use_xgbt: bool, default = True
         Specifies if XGB Trees will be used to detect interactions between
-        features. If False, Extremely Randomized Trees will be used. If
-        False, the Extra Trees Classifier will be used instead.
+        features. If False, Extremely Randomized Trees will be used.
 
     Returns:
 
