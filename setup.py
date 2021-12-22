@@ -1,0 +1,20 @@
+import setuptools
+
+setuptools.setup(name="mECFS",
+                 version="1.0.0.dev",
+                 author="Josip Rudar",
+                 author_email="rudarj@uoguelph.ca",
+                 description="Supervised Selection of Features Using Eigenvector Centrality",
+                 url="https://github.com/jrudar/",
+                 license = "MIT",
+                 keywords = "ecology multivariate statistics",
+                 packages=["mECFS"],
+                 python_requires = ">=3.6",
+                 install_requires = ["scikit-learn >= 1.0.1",
+                                     "numpy >= 1.19.2",
+                                     "xgboost >= 1.5.1",
+                                     "shap >= 0.4.0"],
+                 classifiers=["Programming Language :: Python :: 3.8+",
+                              "License :: MIT License",
+                              "Operating System :: OS Independent",
+                              "Topic :: Ecology :: Multivariate Statistics"])
