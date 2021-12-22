@@ -55,6 +55,7 @@ Once downloaded, go to the location of the download and type:
         the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         
 ### Example Usage
+
         from mECFS import mECFS
         from sklearn.datasets import make_classification
         
@@ -62,7 +63,7 @@ Once downloaded, go to the location of the download and type:
         
         model = mECFS().fit(X, y)
 	
-	X_transformed = model.transform(X)
+        X_transformed = model.transform(X)
 
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
