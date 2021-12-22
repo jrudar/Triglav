@@ -61,7 +61,7 @@ Once downloaded, go to the location of the download and type:
         X, y = make_classification()
         
         model = mECFS().fit(X, y)
-
+	
 	X_transformed = model.transform(X)
 
 ### Disclaimer
