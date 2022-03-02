@@ -1,10 +1,13 @@
 ### Modified Eigenvector Centrality Feature Selection
-	
-
+    This impliments a variant of Eigenvector Centrality Feature Selection which
+    can be used with continuous and binary features. Feature selection also
+    incorporates feature importance information forms supervised learning 
+    algorithms (using Extremely Randomized Trees or XGBoost).
+    
 ### Install
     Once downloaded, go to the location of the download and type:
     
-    `pip install mECFS-1.0.0.dev.tar.gz`
+    pip install mECFS-1.0.0.dev.tar.gz
     
 ### Class Parameters
     Inputs:
