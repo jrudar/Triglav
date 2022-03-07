@@ -12,23 +12,21 @@
 ### Class Parameters
     Inputs:
 
-    n_init: int, default = 6
+    n_init: int, default = 30
         The number of resampling steps.
 
-    k_select: int or str, default = "auto"
-        The number of features to be selected.
+    alpha: float, default = 0.5
+    	The weight parameter for each adjacency matrix.
 
     bootstrap: bool, default = True
         Specifies if bootstrap resampling will be used.
 
-    n_samples: float, default = 0.8
-        A number between 0 and 1.0. This is only used if the 'bootstrap'
-        parameter is set to 'False'. Specifies the number of samples to be
-        randomly selected.
-
     use_xgbt: bool, default = True
         Specifies if XGB Trees will be used to detect interactions between
         features. If 'False', Extremely Randomized Trees will be used.
+	
+    n_jobs: int, default = 6
+    	The number of processes spawned.
 
     Returns:
 
