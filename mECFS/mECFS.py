@@ -16,12 +16,18 @@ import numpy as np
 from sklearn.feature_selection import mutual_info_classif, chi2, VarianceThreshold
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import balanced_accuracy_score, pairwise_distances
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils import resample
+
+from scipy.stats import rankdata, gmean
+
+from statsmodels.stats.multitest import multipletests
 
 from xgboost import XGBClassifier
 
 import shap as sh
+
+from joblib import Parallel, delayed
 
 #Estimates the impact of features and their interactions
 def nl_features(X, y, n_class, use_xgbt):
@@ -87,40 +93,53 @@ def nl_features(X, y, n_class, use_xgbt):
 
         return scores
 
-#Continuous Features
-def mec_fs(X, y, k_select = "auto", use_xgbt = True):
- 
-    alphas = [0.1, 0.2, 0.3, 
-              0.4, 0.5, 0.6, 
-              0.7, 0.8, 0.9]
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, 
-                                                        test_size = 0.2, 
-                                                        stratify = y)
+def adj_cont(X, y, alpha, use_xgbt):
 
     class_set = np.unique(y)
     n_class = class_set.shape[0]
 
     #Calculate Fisher IC
-    f_i = np.zeros(shape = (X_train.shape[1],))
-    col_means = np.mean(X_train, axis = 0)
-    col_var = np.var(X_train, axis = 0, ddof = 1)
-    for col in range(X_train.shape[1]):
-        f_i_tmp = 0.0
+    f_i = np.zeros(shape = (X.shape[1],))
 
-        for i, entry in enumerate(class_set):
-            loc = np.where(y_train == entry, True, False)
-            tmp = np.mean(X_train[loc, col]) - col_means[col]
-            f_i_tmp += np.power(tmp, 2)
+    if n_class > 2:
+        col_means = np.mean(X, axis = 0)
+        for col in range(X.shape[1]):
+            f_i_tmp = 0.0
+            sum_vars - 0.0
 
-        f_i_tmp = f_i_tmp / col_var[col]
-        f_i[col] = f_i_tmp
+            for i, entry in enumerate(class_set):
+                loc = np.where(y == entry, True, False)
 
-    f_i = f_i - np.min(f_i)
-    f_i = f_i / np.max(f_i)
+                mu_diff_class = np.mean(X[loc, col]) - col_means[col]
 
+                sum_vars += np.var(X[loc], axis = 0, ddof = 1)
+
+                f_i_tmp += np.power(mu_diff_class, 2)
+
+            f_i_tmp = f_i_tmp / sum_vars
+            f_i[col] = f_i_tmp
+
+    else:
+        loc_1 = np.where(y == class_set[0], True, False)
+        loc_2 = np.where(y == class_set[1], True, False)
+
+        for col in range(X.shape[1]):
+            mu_diff_class = (np.mean(X[loc_1, col]) - np.mean(X[loc_2, col])) ** 2
+
+            sum_var = np.var(X[loc_1, col], ddof = 1) + np.var(X[loc_2, col], ddof = 1)
+
+            f_i[col] = mu_diff_class / sum_var
+
+    #All features are important if all elements are the same
+    if np.all(f_i == f_i[0]):
+           f_i = np.ones(shape = (X.shape[1],))
+
+    else:
+        f_i = f_i - np.min(f_i)
+        f_i = f_i / np.max(f_i)
+    
     #Calculate mutual information
-    m_i = mutual_info_classif(X_train, y_train)
+    m_i = mutual_info_classif(X, y)
     m_i = m_i - np.min(m_i)
     m_i = m_i / np.max(m_i)
 
@@ -128,83 +147,75 @@ def mec_fs(X, y, k_select = "auto", use_xgbt = True):
     K_mfd = np.matmul(C, C.T)
 
     #Estimate feature interaction scores
-    K_t = nl_features(X_train, 
-                      y_train,
+    K_t = nl_features(X, 
+                      y,
                       n_class,
                       use_xgbt)
 
-    #Combone Kernels and Estimate Appropriate Alpha
-    cv_scores = []
-    results = []
-    for alpha in alphas:
-        A = alpha * K_mfd + (1 - alpha) * K_t
+    #Construct A
+    A = alpha * K_mfd + (1 - alpha) * K_t
+    A = A - np.min(A)
+    A = A / np.max(A)
 
-        A = A - np.min(A)
-        A = A / np.max(A)
+    return A
 
-        #Calculate eigenvalues and eigenvectors
-        l, V = np.linalg.eig(A)
+def adj_bin(X, y, alpha, use_xgbt):
 
-        #Select the eigenvector corresponding to the largest eigenvalue
-        l_max = l.argsort()[::-1]
-
-        scores = np.array(V[:, l_max[0]]).flatten()
-        norm = np.sign(scores.sum()) * np.linalg.norm(scores)
-        scores = scores / norm
-
-        if k_select == "auto":
-            med = np.median(scores)
-            mu = np.mean(scores)
-
-            if med >= mu:
-                filtered = np.where(scores >= mu, 
-                                    True, 
-                                    False)
-
-            else:
-                filtered = np.where(scores >= med, 
-                                    True, 
-                                    False)
-
-        else:
-            top_idx = np.argsort(scores)[::-1]
-
-            if top_idx.shape[0] < k_select:
-                k_select = -1
-
-            filtered = set(top_idx[0:k_select])
-        
-            filtered = np.asarray([True if i in filtered 
-                                   else False 
-                                   for i in range(X.shape[1])])
-
-        clf = ExtraTreesClassifier().fit(X_train[:, filtered], 
-                                         y_train)
-
-        cv_scores.append(balanced_accuracy_score(y_test, 
-                                                 clf.predict(X_test[:, filtered])))
-        results.append(filtered)
-
-    #Pick the index of a random score if more than one best score exists
-    max_score = np.max(cv_scores)
-
-    cv_scores = np.where(cv_scores == max_score, True, False)
-    
-    idx = np.random.choice(np.asarray([i for i in range(cv_scores.shape[0]) 
-                                       if cv_scores[i] == True]), 
-                           1)[0]
-
-    return results[idx]
-
-#Binary Features - Works Awesome?
-def mec_fs_pa(X, y, k_select = "auto", use_xgbt = True):
- 
     class_set = np.unique(y)
     n_class = class_set.shape[0]
 
-    alphas = [0.1, 0.2, 0.3, 
-              0.4, 0.5, 0.6, 
-              0.7, 0.8, 0.9]
+    #Calculate Chi-squared statistic
+    f_i = chi2(X, y)[0]
+    f_i = f_i - np.min(f_i)
+    f_i = f_i / np.max(f_i)
+
+    #Calculate mutual information
+    m_i = mutual_info_classif(X, y)
+    m_i = m_i - np.min(m_i)
+    m_i = m_i / np.max(m_i)
+
+    C = np.vstack((m_i, f_i)).mean(axis = 0).reshape(-1, 1)
+    K_mfd = np.matmul(C, C.T)
+
+    #Estimate feature interaction scores
+    K_t = nl_features(X, 
+                      y,
+                      n_class,
+                      use_xgbt)
+
+    #Construct A
+    A = alpha * K_mfd + (1 - alpha) * K_t
+    A = A - np.min(A)
+    A = A / np.max(A)
+
+    return A
+
+def ec(A):
+
+    #Calculate eigenvalues and eigenvectors
+    l, V = np.linalg.eig(A)
+
+    #Select the eigenvector corresponding to the largest eigenvalue
+    l_max = l.argsort()[::-1]
+
+    scores = np.array(V[:, l_max[0]]).flatten()
+    norm = np.sign(scores.sum()) * np.linalg.norm(scores)
+    scores = scores / norm
+
+    return scores
+
+#Continuous Features
+def mec_fs_cn(X, y, use_xgbt, alpha):
+     
+    #Calculate the scores, this is the test-statistic
+    A_stat = adj_cont(X, y, alpha, use_xgbt)
+    return ec(A_stat)
+
+#Binary Features - Works Awesome?
+def mec_fs_pa(X, y, use_xgbt, alpha):
+ 
+    class_set = np.unique(y)
+    n_class = class_set.shape[0]
 
     #Get the index of the original features
     F_ori = np.asarray([i for i in range(X.shape[1])])
@@ -217,90 +228,96 @@ def mec_fs_pa(X, y, k_select = "auto", use_xgbt = True):
     if X_filt.shape[1] == 0:
         return np.asarray([True for _ in range(X.shape[1])])
 
-    #Divide data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X_filt, y, 
-                                                        test_size = 0.2, 
-                                                        stratify = y)
+    #Calculate the scores, this is the test-statistic
+    A_stat = adj_bin(X_filt, y, alpha, use_xgbt)
+    EC_stat = ec(A_stat)
 
-    #Calculate Chi-squared statistic
-    f_i = chi2(X_train, y_train)[0]
-    f_i = f_i - np.min(f_i)
-    f_i = f_i / np.max(f_i)
+    EC_final = np.zeros(shape = (X.shape[1],))
+    for i, idx in enumerate(F_ori):
+        EC_final[idx] = EC_stat[i]
 
-    #Calculate mutual information
-    m_i = mutual_info_classif(X_train, y_train)
-    m_i = m_i - np.min(m_i)
-    m_i = m_i / np.max(m_i)
+    return EC_final
 
-    C = np.vstack((m_i, f_i)).mean(axis = 0).reshape(-1, 1)
-    K_mfd = np.matmul(C, C.T)
+def select_features(X, y, alpha, use_xgbt, is_binary, bootstrap, perm):
 
-    #Estimate feature interaction scores
-    K_t = nl_features(X_train, 
-                      y_train,
-                      n_class,
-                      use_xgbt)
+    X_re, y_re = resample(X, y, 
+                          replace = bootstrap, 
+                          n_samples = int(X.shape[0] * 0.8), 
+                          stratify = y)
 
-    #Combone Kernels and Estimate Appropriate Alpha
-    cv_scores = []
-    results = []
-    for alpha in alphas:
-        A = alpha * K_mfd + (1 - alpha) * K_t
+    if perm == True:
+        y_re = np.random.permutation(y_re)
 
-        A = A - np.min(A)
-        A = A / np.max(A)
+    if is_binary:
+        ec_score = mec_fs_pa(X_re, 
+                             y_re, 
+                             use_xgbt,
+                             alpha)
 
-        #Calculate eigenvalues and eigenvectors
-        l, V = np.linalg.eig(A)
+    else:
+        ec_score = mec_fs_cn(X_re, 
+                             y_re,
+                             use_xgbt,
+                             alpha)
 
-        #Select the eigenvector corresponding to the largest eigenvalue
-        l_max = l.argsort()[::-1]
+    return ec_score
 
-        scores = np.array(V[:, l_max[0]]).flatten()
-        norm = np.sign(scores.sum()) * np.linalg.norm(scores)
-        scores = scores / norm
+from numpy.random import PCG64
+def calc_stat(a, b, n_feat, n_init):
 
-        if k_select == "auto":
-            med = np.median(scores)
-            mu = np.mean(scores)
+    rng = np.random.Generator(PCG64())
 
-            if med >= mu:
-                retained = np.where(scores >= mu, True, False)
+    #Get a sample experiment
+    X_a = resample(a, replace = False, n_samples = n_init)
 
-            else:
-                retained = np.where(scores >= med, True, False)
-
-            F_ori = set(F_ori[retained])
-
-            filtered = np.asarray([True if i in F_ori else False for i in range(X.shape[1])])
-
-        else:
-            top_idx = np.argsort(scores)[::-1]
-
-            if top_idx.shape[0] < k_select:
-                k_select = -1
-
-            filtered = set(top_idx[0:k_select])
-        
-            filtered = np.asarray([True if i in filtered else False for i in range(X.shape[1])])
-
-        clf = ExtraTreesClassifier().fit(X_train[:, filtered], 
-                                         y_train)
-
-        cv_scores.append(balanced_accuracy_score(y_test, 
-                                                 clf.predict(X_test[:, filtered])))
-        results.append(filtered)
-
-    #Pick the index of a random score if more than one best score exists
-    max_score = np.max(cv_scores)
-
-    cv_scores = np.where(cv_scores == max_score, True, False)
+    #Get geometric mean on ranks
+    X_a = X_a * -1
+    rank_a = rankdata(X_a, axis = 1)
+    g_rank_a = gmean(rank_a, axis = 0)
     
-    idx = np.random.choice(np.asarray([i for i in range(cv_scores.shape[0]) 
-                                       if cv_scores[i] == True]), 
-                           1)[0]
+    #Create many permuted experiments
+    X_b = np.copy(b, "C")
+    g_rank_b = np.zeros(shape = (200, n_feat))
+    for i in range(200):
+        X_b = rng.permuted(X_b, axis = 1, out = X_b)
 
-    return results[idx]
+        g_rank_b[i] = gmean(X_b, axis = 0)
+
+    #Get expected rank
+    g_rank_b = g_rank_b.mean(axis = 0)
+    
+    #Compare and return
+    return np.less_equal(g_rank_b, g_rank_a)
+
+def stat(a, n_feat, n_init):
+
+    #Get real part
+    a_real = a.real
+
+    #Prepare an array of ranks for permutation
+    X_b = np.zeros(shape = (n_init, n_feat))
+    for i in range(n_init):
+        X_b[i] = np.asarray([i + 1 for i in range(n_feat)]) 
+
+    #Compare to null distribution
+    p = Parallel(5)(delayed(calc_stat)(a_real, X_b, n_feat, n_init) for i in range(10000))
+
+    p = np.asarray(p).mean(axis = 0)
+
+    p_adj = multipletests(p, method = "fdr_tsbh")[0]
+
+    #Prepare raw ranks
+    R_stat = a_real * -1
+    R_stat = rankdata(R_stat, axis = 1)
+    R_stat = gmean(R_stat, axis = 0)
+
+    #Order and rank features by increasing R_stat
+    R_order = [(i, R) for i, R in enumerate(R_stat)]
+    R_order = np.asarray(sorted(R_order, key = lambda x: x[1]))
+    R_order[:, 1] = rankdata(R_order[:, 1])
+    R_order = R_order.astype(np.int)
+
+    return p_adj, R_order
 
 #Class which combines the above method into a nice interface
 class mECFS():
@@ -310,34 +327,25 @@ class mECFS():
     n_init: int, default = 6
         The number of resampling steps.
 
-    k_select: int or str, default = "auto"
-        The number of features to be selected.
-
-    bootstrap: bool, default = True
-        Specifies if bootstrap resampling will be used.
-
-    n_samples: float, default = 0.8
-        A number between 0 and 1.0. This is only used if the 'bootstrap'
-        parameter is set to 'False'. Specifies the number of samples to be
-        randomly selected.
+    alpha: float, default = 0.5
+        Specifies how much to weigh each adjacency matrix.
 
     use_xgbt: bool, default = True
         Specifies if XGB Trees will be used to detect interactions between
-        features. If False, Extremely Randomized Trees will be used. If
-        False, the Extra Trees Classifier will be used instead.
+        features. If False, Extremely Randomized Trees will be used.
 
     Returns:
 
     An mECFS object.
     """
 
-    def __init__(self, n_init = 6, k_select = "auto", bootstrap = True, n_samples = 0.8, use_xgbt = True):
+    def __init__(self, n_init = 30, alpha = 0.50, use_xgbt = True, bootstrap = True, n_jobs = 6):
 
         self.n_init = n_init
-        self.k_select = k_select
-        self.bootstrap = bootstrap
-        self.n_samples = n_samples
+        self.alpha = alpha
         self.use_xgbt = use_xgbt
+        self.bootstrap = bootstrap
+        self.n_jobs = n_jobs
 
     def fit(self, X, y):
         """
@@ -357,51 +365,32 @@ class mECFS():
         self.classes_, y_int_ = np.unique(y, return_inverse = True)
         self.n_class_ = self.classes_.shape[0]
 
-        if self.bootstrap:
-            n_samp = X.shape[0]
-
-        else:
-            n_samp = int(X.shape[0] * self.n_samples)
-
         #Check if the features are binary
         self.is_binary_ = np.array_equal(X, X.astype(bool))
 
-        #Run the algorithm multiple times on multiple instances of the dataset
-        stability_arr = []
-        for _ in range(self.n_init):
-            X_re, y_re = resample(X, y_int_, 
-                                  replace = self.bootstrap, 
-                                  n_samples = n_samp, 
-                                  stratify = y_int_)
+        #Get the base distribution of EC scores
+        EC_stat = Parallel(n_jobs = self.n_jobs)(delayed(select_features)(X, 
+                                                                          y_int_, 
+                                                                          self.alpha, 
+                                                                          self.use_xgbt, 
+                                                                          self.is_binary_,
+                                                                          self.bootstrap,
+                                                                          perm = False) 
+                                                       for _ in range(300))
 
-            if self.is_binary_:
-                stability_arr.append(mec_fs_pa(X_re, 
-                                               y_re, 
-                                               k_select = self.k_select,
-                                               use_xgbt = self.use_xgbt))
+        EC_stat = np.asarray(EC_stat)
+        
+        self.selected_, self.ranks_ = stat(EC_stat, X.shape[1], self.n_init)
 
-            else:
-                stability_arr.append(mec_fs(X_re, 
-                                            y_re, 
-                                            k_select = self.k_select,
-                                            use_xgbt = self.use_xgbt))
-
-        #Only select features larger than the mean of all non-zero features
-        if len(stability_arr) > 1:
-            self.selected_ = np.mean(stability_arr, axis = 0)
-            
-            non_zero = np.where(self.selected_ > 0, 
-                                True, 
-                                False)
-
-            mu_selected = np.mean(self.selected_[non_zero])
-            
-            self.selected_ = np.where(self.selected_ >= mu_selected, 
-                                      True, 
-                                      False)
+        if self.selected_.sum() > 0:
+            return self
 
         else:
-            self.selected_ = stability_arr[0]
+            print("No features were found significant. Returning all features.")
+
+            self.selected_ = np.asarray([True for i in range(X.shape[1])])
+
+            return self
 
         return self
     
