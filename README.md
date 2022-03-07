@@ -2,7 +2,8 @@
     This impliments a variant of Eigenvector Centrality Feature Selection which
     can be used with continuous and binary features. Feature selection also
     incorporates feature importance information forms supervised learning 
-    algorithms (using Extremely Randomized Trees or XGBoost).
+    algorithms (using Extremely Randomized Trees or XGBoost). Scores are converted
+    into ranks and features are selected using permutation statistics.
     
 ### Install
     Once downloaded, go to the location of the download and type:
