@@ -10,7 +10,6 @@ from sklearn.utils import check_random_state, check_X_y
 from sklearn.base import TransformerMixin, BaseEstimator, clone
 from sklearn.feature_selection import mutual_info_classif, VarianceThreshold
 from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.linear_model import LogisticRegressionCV, SGDClassifier
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split, GridSearchCV
