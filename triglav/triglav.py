@@ -23,8 +23,6 @@ import sage
 
 from joblib import Parallel, delayed
 
-from random import sample
-
 from scipy.stats import betabinom
 
 from math import ceil
