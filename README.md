@@ -8,6 +8,7 @@
     
     1) The "importance" of real and shadow features are based off of
        Shapley and SAGE scores.
+       
     2) An ensemble approach is used to identify "hits" in each round and
        each round consists of two selection stages: Generally, in the 
        initial round features are selected using Shapley scores, while
@@ -16,8 +17,11 @@
        models: SGD Classifier, Extra Trees, Linear SVC, Logisitic
        Regression, and Mutual Information. The second round only uses the
        Extra Trees Classifier.
+       
     3) A beta-binomial distribution is used to calculate p-values.
+    
     4) A two-step correction for p-values is used.
+    
     5) After the iterative refinement stage, a dataframe is constructed
        using the remaining real and shadow features. The final set of
        features are constructed using from SAGE scores greather than the
