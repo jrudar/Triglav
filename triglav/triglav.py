@@ -141,13 +141,13 @@ def model_fun(X, y, mod, threshold):
 def mi(X, y, threshold):
 
     # Check if the features are binary
-    self.is_binary_ = np.array_equal(X, X.astype(bool))
+    is_binary_ = np.array_equal(X, X.astype(bool))
 
     X_comb = get_shadow(X)
 
     N_Ne = np.random.choice([3,4,5,6,7], size = 1)[0]
 
-    m_i = mutual_info_classif(X_comb, y, discrete_features = self.is_binary_, n_neighbors = N_Ne)
+    m_i = mutual_info_classif(X_comb, y, discrete_features = is_binary_, n_neighbors = N_Ne)
 
     S = m_i[:X.shape[1]] > np.percentile(m_i[X.shape[1]:], threshold)
             
