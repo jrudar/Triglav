@@ -242,7 +242,7 @@ def binomial_test(X, C, alpha, a, b):
     if X.ndim == 1:
 
         P_hit = beta_bin.sf(X[:, col].sum() - 1)
-        P_rej = beta_bin.cdf(X[:, col].sum() - 1)
+        P_rej = beta_bin.cdf(X[:, col].sum())
 
         if P_hit <= THRESHOLD:
             P_hit = np.asarray([True])
@@ -263,7 +263,7 @@ def binomial_test(X, C, alpha, a, b):
         P_rej = []
         for col in cols:
             P_hit.append(beta_bin.sf(X[:, col].sum() - 1))
-            P_rej.append(beta_bin.cdf(X[:, col].sum() - 1))
+            P_rej.append(beta_bin.cdf(X[:, col].sum()))
 
         P_hit = np.asarray(P_hit)
         P_rej = np.asarray(P_rej)
