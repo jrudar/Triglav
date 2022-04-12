@@ -1,5 +1,28 @@
 ### Feature Selection Using Iterative Refinement
 
+### Overview
+    Triglav (named after the Slavic god of divination) attempts to discover
+    all relevant features using an iterative refinement approach. This
+    approach is based after the method introduced in Boruta with several
+    modifications:
+    
+    1) The "importance" of real and shadow features are based off of
+       Shapley and SAGE scores.
+    2) An ensemble approach is used to identify "hits" in each round and
+       each round consists of two selection stages: Generally, in the 
+       initial round features are selected using Shapley scores, while
+       SAGE scores are always calculated in the second round. The initial
+       round includes all features selected from any two of the following
+       models: SGD Classifier, Extra Trees, Linear SVC, Logisitic
+       Regression, and Mutual Information. The second round only uses the
+       Extra Trees Classifier.
+    3) A beta-binomial distribution is used to calculate p-values.
+    4) A two-step correction for p-values is used.
+    5) After the iterative refinement stage, a dataframe is constructed
+       using the remaining real and shadow features. The final set of
+       features are constructed using from SAGE scores greather than the
+       n-th percentile of the shadow scores.
+
 ### Install
 Once downloaded, go to the location of the download and type:
     pip install triglav-1.0.0.dev0.tar.gz
