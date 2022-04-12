@@ -141,7 +141,7 @@ def model_fun(X, y, mod, threshold):
 def mi(X, y, threshold):
 
     # Check if the features are binary
-    self.is_binary_ = np.array_equal(X_in, X.astype(bool))
+    self.is_binary_ = np.array_equal(X, X.astype(bool))
 
     X_comb = get_shadow(X)
 
