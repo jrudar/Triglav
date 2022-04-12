@@ -2,6 +2,6 @@
 This module implements Triglav
 """
 
-from .mECFS import Triglav
+from .triglav import Triglav
 
 __all__ = ["Triglav"]
