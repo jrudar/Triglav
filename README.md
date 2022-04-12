@@ -29,7 +29,7 @@
 
 ### Install
 Once downloaded, go to the location of the download and type:
-    pip install triglav-v0.0.1.tar.gz
+    pip install triglav-v0.0.1a.tar.gz
     
 ### Class Parameters
     Inputs:
