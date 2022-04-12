@@ -18,8 +18,6 @@ from sklearn.metrics import make_scorer, balanced_accuracy_score
 
 from statsmodels.stats.multitest import multipletests
 
-from xgboost import XGBClassifier
-
 import shap as sh
 import sage
 
@@ -30,8 +28,6 @@ from random import sample
 from scipy.stats import betabinom
 
 from math import ceil
-
-import baycomp as bc
 
 from functools import partial
 
@@ -369,7 +365,6 @@ def select_features(
     H = np.asarray(H)
 
     if verbose > 0:
-        print("Starting Stage 1...")
         print("Refining features...")
 
     for i in range(max_iter):
@@ -496,8 +491,8 @@ class Triglav(TransformerMixin, BaseEstimator):
         threshold_2: int = 95,
         a: float = 24,
         b: float = 32,
-        a_2: float = 0.5,
-        b_2: float = 6,
+        a_2: float = 20,
+        b_2: float = 32,
         alpha: float = 0.025,
         max_iter: int = 50,
         verbose: int = 0,
