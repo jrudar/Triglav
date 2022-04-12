@@ -1,37 +1,37 @@
-### Modified Eigenvector Centrality Feature Selection
-    This impliments a variant of Eigenvector Centrality Feature Selection which
-    can be used with continuous and binary features. Feature selection also
-    incorporates feature importance information forms supervised learning 
-    algorithms (using Extremely Randomized Trees or XGBoost). Scores are converted
-    into ranks and features are selected using permutation statistics.
-    
+### Feature Selection Using Iterative Refinement
+
 ### Install
-    Once downloaded, go to the location of the download and type:
-    
-    pip install mECFS-1.0.0.dev.tar.gz
+Once downloaded, go to the location of the download and type:
+    pip install triglav-1.0.0.dev0.tar.gz
     
 ### Class Parameters
     Inputs:
 
-    n_init: int, default = 30
-        The number of resampling steps.
+    threshold and threshold_2: int, default = 95
+        The threshold for comparing shadow and real features in the
+        first and second stage.
 
-    alpha: float, default = 0.5
-    	The weight parameter for each adjacency matrix.
+    a and a_2: float, default = 24 / 0.5
+        The 'a' parameter of the Beta distribution at stage 1 and 2.
 
-    bootstrap: bool, default = True
-        Specifies if bootstrap resampling will be used.
+    b and b_2: float, default = 32 / 6
+        The 'b' parameter of the Beta distribution at stage 1 and 2.
 
-    use_xgbt: bool, default = True
-        Specifies if XGB Trees will be used to detect interactions between
-        features. If 'False', Extremely Randomized Trees will be used.
-	
-    n_jobs: int, default = 6
-    	The number of processes spawned.
+    alpha: float, default = 0.025
+        The level at which corrected p-values will be rejected.
+
+    max_iter: int, default = 50
+        The maximum number of iterations.
+
+    verbose: int, default = 0
+        Specifies if basic reporting is sent to the user.
+
+    n_jobs: int, default = 5
+        The number of threads
 
     Returns:
 
-    A mECFS object.
+    An Triglav object.
             
 ### Fit Parameters
         Inputs:
@@ -55,32 +55,21 @@
         Returns:
 
         X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
-        the number of features (taxa, OTUs, ASVs, etc). 'p' <= 'm'
+        the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         
 ### Example Usage
-
-        from mECFS import mECFS
+        from triglav import Triglav
         from sklearn.datasets import make_classification
         
         X, y = make_classification()
         
-        model = mECFS().fit(X, y)
-	
-        X_transformed = model.transform(X)
+        model = Triglav().fit(X, y)
+
+	X_transformed = model.transform(X)
 
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
 
 ### References
 
-    Adapted From:
-    https://www.mathworks.com/matlabcentral/fileexchange/56937-feature-selection-library
-
-    @InProceedings{RoffoECML16, 
-     author={G. Roffo and S. Melzi}, 
-     booktitle={Proceedings of New Frontiers in Mining Complex Patterns (NFMCP 2016)}, 
-     title={Features Selection via Eigenvector Centrality}, 
-     year={2016}, 
-     keywords={Feature selection;ranking;high dimensionality;data mining}, 
-     month={Oct}}
-
+	Coming Soon
