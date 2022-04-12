@@ -1,4 +1,4 @@
-### Feature Selection Using Iterative Refinement
+### Triglav - Feature Selection Using Iterative Refinement
 
 ### Overview
     Triglav (named after the Slavic god of divination) attempts to discover
