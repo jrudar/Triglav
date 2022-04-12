@@ -349,7 +349,6 @@ def select_features(X, y, max_iter, alpha, threshold, threshold_2, a, b, a_2, b_
     H = np.asarray(H)
 
     if verbose > 0:
-        print("Starting Stage 1...")
         print("Refining features...")
 
     for i in range(max_iter):
