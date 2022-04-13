@@ -452,7 +452,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         The threshold for comparing shadow and real features in the
         first and second stage.
 
-    p and p_2: float, default = 0.55 and 0.45
+    p and p_2: float, default = 0.55 and 0.55
         The 'p' parameter of the Binomial distribution at stages 1 and 2.
 
     alpha: float, default = 0.05
