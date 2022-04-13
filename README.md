@@ -39,7 +39,7 @@ Once downloaded, go to the location of the download and type:
         The threshold for comparing shadow and real features in the
         first and second stage.
 
-    p and p_2: float, default = 24 / 20
+    p and p_2: float, default = 0.55 / 0.55
         The 'p' parameter of the Binomial distribution at stages 1 and 2.
 
     alpha: float, default = 0.025
