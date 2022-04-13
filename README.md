@@ -18,7 +18,8 @@
        Regression, and Mutual Information. The second round only uses the
        Extra Trees Classifier.
        
-    3) A beta-binomial distribution is used to calculate p-values.
+    3) A binomial distribution is used to calculate p-values. User can
+       specify the 'p' parameter of the distribution.
     
     4) A two-step correction for p-values is used.
     
@@ -29,7 +30,7 @@
 
 ### Install
 Once downloaded, go to the location of the download and type:
-    pip install triglav-v0.0.1a.tar.gz
+    pip install triglav-v0.0.1b.tar.gz
     
 ### Class Parameters
     Inputs:
