@@ -39,11 +39,8 @@ Once downloaded, go to the location of the download and type:
         The threshold for comparing shadow and real features in the
         first and second stage.
 
-    a and a_2: float, default = 24 / 20
-        The 'a' parameter of the Beta-Binomial distribution at stage 1 and 2.
-
-    b and b_2: float, default = 32 / 32
-        The 'b' parameter of the Beta-Binomial distribution at stage 1 and 2.
+    p and p_2: float, default = 24 / 20
+        The 'p' parameter of the Binomial distribution at stages 1 and 2.
 
     alpha: float, default = 0.025
         The level at which corrected p-values will be rejected.
