@@ -7,26 +7,20 @@
     modifications:
     
     1) The "importance" of real and shadow features are based off of
-       Shapley and SAGE scores.
+       Shapley scores.
        
-    2) An ensemble approach is used to identify "hits" in each round and
-       each round consists of two selection stages: Generally, in the 
-       initial round features are selected using Shapley scores, while
-       SAGE scores are always calculated in the second round. The initial
-       round includes all features selected from any two of the following
-       models: SGD Classifier, Extra Trees, Linear SVC, Logisitic
-       Regression, and Mutual Information. The second round only uses the
-       Extra Trees Classifier.
+    2) Features are clustered and nn ensemble approach is used to identify 
+       impactful clusters. Shapley scores of real feature are compared to 
+       their shadow counterparts using a Wilcoxon signed-rank test. p-values 
+       are adjusted to correct for multiple comparisons across each round. 
+       Only features below a pre-specified alpha are considered a "hit".
        
-    3) A binomial distribution is used to calculate p-values. User can
-       specify the 'p' parameter of the distribution.
-    
-    4) A two-step correction for p-values is used.
-    
-    5) After the iterative refinement stage, a dataframe is constructed
-       using the remaining real and shadow features. The final set of
-       features are constructed using from SAGE scores greather than the
-       n-th percentile of the shadow scores.
+    3) A beta-binomial distribution is used to calculate the p-value
+       associated with each hit. These are corrected for multiple
+       comparisions (FDR and FWER).
+        
+    5) After the iterative refinement stage SAGE scores are used to select
+       the best feature from each cluster.
 
 ### Install
 Once downloaded, go to the location of the download and type:
@@ -35,23 +29,31 @@ Once downloaded, go to the location of the download and type:
 ### Class Parameters
     Inputs:
 
-    threshold and threshold_2: int, default = 95
-        The threshold for comparing shadow and real features in the
-        first and second stage.
+    threshold and threshold_2: int, default = 99.5 and 100
+        The threshold for comparing shadow and real features in the 
+        when using SHAP and SAGE scores.
 
-    p and p_2: float, default = 0.55 / 0.55
-        The 'p' parameter of the Binomial distribution at stages 1 and 2.
+    metric: str, default = "correlation"
+        The dissimilarity measure used to calculate distances between
+        features.
 
-    alpha: float, default = 0.025
+    linkage: str, default = "complete"
+
+    thresh: float, default = 2.0
+
+    criterion: str, default = "distance"
+
+    p: float, default = 0.35
+        The 'p' parameter used to determine the shape of the Beta-Binomial 
+        distribution.
+
+    alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
-
-    max_iter: int, default = 50
-        The maximum number of iterations.
 
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
 
-    n_jobs: int, default = 5
+    n_jobs: int, default = 3
         The number of threads
 
     Returns:
