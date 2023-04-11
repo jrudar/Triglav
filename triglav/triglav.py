@@ -1,470 +1,384 @@
 import warnings
 from sklearn.exceptions import ConvergenceWarning
-
-warnings.filterwarnings("ignore", category=ConvergenceWarning, module="sklearn")
+warnings.filterwarnings("ignore", category=ConvergenceWarning, module = "sklearn")
 
 import numpy as np
 from numpy.random import PCG64
 
-from sklearn.utils import check_random_state, check_X_y
-from sklearn.base import TransformerMixin, BaseEstimator, clone
-from sklearn.feature_selection import mutual_info_classif, VarianceThreshold
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.utils import check_X_y, resample
+from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.linear_model import LogisticRegressionCV, SGDClassifier
-from sklearn.svm import LinearSVC
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import make_scorer, balanced_accuracy_score
+from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
+from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import LabelEncoder
 
 from statsmodels.stats.multitest import multipletests
 
 import shap as sh
-import sage
+
+import sage as sg
 
 from joblib import Parallel, delayed
 
-from random import sample
+from scipy.stats import wilcoxon, betabinom
+from scipy.cluster import hierarchy
 
-from scipy.stats import binom
-
-from math import ceil
-
-from functools import partial
+from skbio.stats.composition import multiplicative_replacement, closure, clr
 
 import typing
 
+from collections import defaultdict
+
+from gc import collect
+
 ##################################################################################
-# Utility Functions
+#Utility Functions
 ##################################################################################
-def sage_scores(X, y, S, T):
+def beta_binom_test(X, C, alpha = 0.05, p=0.5):
 
-    X_comb = get_shadow(X[:, S])
+    THRESHOLD = alpha / C #For FWER correction
 
-    M = ExtraTreesClassifier(128, max_depth=5).fit(X_comb, y)
+    n = X.shape[0] #Number of trials
 
-    imputer = sage.MarginalImputer(M, X_comb)
-
-    estimator = sage.SignEstimator(imputer)
-
-    sage_values = estimator(X_comb, y, bar=False)
-
-    mu_real = sage_values.values[: X[:, S].shape[1]]
-
-    mu_shadow = sage_values.values[X[:, S].shape[1] :]
-
-    S_new = mu_real > np.percentile(mu_shadow, T)
-
-    S_idx = np.asarray([i for i in range(S.shape[0])])
-    S_idx_red = S_idx[S]
-
-    S_final = np.zeros(shape=(S.shape[0]), dtype=bool)
-    for i, loc in enumerate(S_idx_red):
-        S_final[loc] = S_new[i]
-
-    return S_final
-
-
-def shap_scores(M, A, B):
-
-    explainer = sh.Explainer(M, masker=sh.maskers.Independent(A))
-
-    s = np.abs(explainer(B).values)
-
-    if s.ndim > 2:
-        s = s.mean(axis=2)
-
-    s = s.mean(axis=0)
-
-    return s
-
-
-def get_shadow(X):
-
-    rnd = np.random.Generator(PCG64())
-    X_perm = np.copy(X, "C")
-    for col in range(X.shape[1]):
-        rnd.shuffle(X_perm[:, col])
-
-    X_comb = np.hstack((X, X_perm))
-
-    return X_comb
-
-
-def par_train(mod, X, y):
-
-    X_comb = get_shadow(X)
-
-    S = []
-
-    X_1, X_2, y_1, y_2 = train_test_split(X_comb, y, train_size=0.5, stratify=y)
-
-    clf = mod.fit(X_1, y_1)
-
-    try:
-        clf = clf.best_estimator_
-    except:
-        pass
-
-    S.append(shap_scores(clf, X_1, X_2))
-
-    clf = mod.fit(X_2, y_2)
-
-    try:
-        clf = clf.best_estimator_
-    except:
-        pass
-
-    S.append(shap_scores(clf, X_2, X_1))
-
-    return np.mean(S, axis=0)
-
-
-def model_fun(X, y, mod, threshold):
-
-    S = Parallel(4)(
-        delayed(par_train)(
-            clone(mod),
-            X,
-            y,
-        )
-        for _ in range(10)
-    )
-
-    S = np.asarray(S).mean(axis=0)
-    S_o = S[: X.shape[1]]
-    S_s = S[X.shape[1] :]
-
-    S = S_o > np.percentile(S_s, threshold)
-
-    return S
-
-
-def mi(X, y, threshold):
-
-    # Check if the features are binary
-    is_binary_ = np.array_equal(X, X.astype(bool))
-
-    X_comb = get_shadow(X)
-
-    N_Ne = np.random.choice([3, 4, 5, 6, 7], size=1)[0]
-
-    m_i = mutual_info_classif(X_comb, y, discrete_features=is_binary_, n_neighbors=N_Ne)
-
-    S = m_i[: X.shape[1]] > np.percentile(m_i[X.shape[1] :], threshold)
-
-    return S
-
-
-def get_hits(X, y, threshold):
-
-    class_set = np.unique(y)
-    n_class = class_set.shape[0]
-
-    if n_class > 2:
-        loss = "mlogloss"
-
-    else:
-        loss = "logloss"
-
-    selection = set(np.random.choice([i for i in range(5)], 2, replace=False))
-
-    score_fun = make_scorer(balanced_accuracy_score)
-
-    # Create a list of models to execute
-    models = {
-        0: partial(
-            model_fun,
-            mod=GridSearchCV(
-                SGDClassifier(loss="perceptron", max_iter=3000),
-                param_grid={"alpha": [0.001, 0.01, 0.1, 1.0, 10.0, 100]},
-                cv=3,
-                scoring=score_fun,
-            ),
-            threshold=threshold,
-        ),
-        1: partial(
-            model_fun, mod=ExtraTreesClassifier(384, max_depth=5), threshold=threshold
-        ),
-        2: partial(
-            model_fun,
-            mod=GridSearchCV(
-                LinearSVC(max_iter=3000),
-                param_grid={"C": [0.001, 0.01, 0.1, 1.0, 10.0, 100]},
-                cv=3,
-                scoring=score_fun,
-            ),
-            threshold=threshold,
-        ),
-        3: partial(
-            model_fun,
-            mod=LogisticRegressionCV(max_iter=3000, cv=3),
-            threshold=threshold,
-        ),
-        4: partial(mi, threshold=threshold),
-    }
-
-    H = [models[t](X, y) for t in selection]
-
-    if H[0].sum() < H[1].sum():
-        return H[0]
-
-    else:
-        return H[1]
-
-
-def fs(X, y, threshold):
-
-    class_set = np.unique(y)
-    n_class = class_set.shape[0]
-
-    # Get the index of the original features
-    F_ori = np.asarray([i for i in range(X.shape[1])])
-
-    # Remove all columns where features do not vary
-    rem = VarianceThreshold().fit(X)
-    X_filt = rem.transform(X)
-    F_ori = rem.transform([F_ori])[0]
-
-    if X_filt.shape[1] == 0:
-        return np.zeros(shape=(X.shape[1],), dtype=bool)
-
-    # Calculate the initial scores
-    S = get_hits(X_filt, y, threshold)
-    if S.sum() == 0:
-        return np.zeros(shape=(X.shape[1],), dtype=bool)
-
-    # Calculate SAGE scores
-    S_sage = sage_scores(X_filt, y, S, threshold)
-    if S_sage.sum() == 0:
-        return np.zeros(shape=(X.shape[1],), dtype=bool)
-
-    S_final = rem.inverse_transform([S])[0]
-
-    return S_final
-
-
-def binomial_test(X, C, alpha, p):
-
-    THRESHOLD = alpha / C
-
-    loc = np.where(X.sum(axis=0) > 0, True, False)
-    cols = np.asarray([i for i in range(X.shape[1])])
-    cols = cols[loc]
+    #The distribution of p should depend on the total number of trials
+    a = p * n
+    b = n - a
 
     P_hit = []
     P_rej = []
-    for col in cols:
+    for column in range(X.shape[1]):
 
-        # Parametarize the beta-binomial distribution
-        dist = binom(X.shape[0], p)
+        pval = betabinom.sf(X[:, column].sum()-1, n, a, b, loc=0)
 
-        # Calcualte p-values
-        P_hit.append(dist.sf(X[:, col].sum() - 1))
-        P_rej.append(dist.cdf(X[:, col].sum()))
+        P_hit.append(pval)
+        P_rej.append(1.0 - pval)
 
     P_hit = np.asarray(P_hit)
     P_rej = np.asarray(P_rej)
 
-    # Correct for comparisons within iteration followed by correction across iterations
-    P_hit = multipletests(P_hit, alpha, method="fdr_tsbky")[1]
-    P_rej = multipletests(P_rej, alpha, method="fdr_tsbky")[1]
+    #Correct for comparing multiple features
+    P_hit_fdr = multipletests(P_hit, alpha, method = "fdr_bh")[0]
+    P_rej_fdr = multipletests(P_rej, alpha, method = "fdr_bh")[0]
 
-    # Correct for comparisons across iterations
-    P_hit = P_hit <= THRESHOLD
-    P_rej = P_rej <= THRESHOLD
+    #Correct for comparisons across iterations
+    P_hit_b = P_hit <= THRESHOLD
+    P_rej_b = P_rej <= THRESHOLD
+        
+    #Combine
+    P_hit = P_hit_fdr * P_hit_b
+    P_rej = P_rej_fdr * P_rej_b
 
-    # Restore original size
-    P_H = np.zeros(shape=(X.shape[1]), dtype=bool)
-    P_R = np.ones(shape=(X.shape[1]), dtype=bool)
-    for i, col in enumerate(cols):
-        P_H[col] = P_hit[i]
-        P_R[col] = P_rej[i]
+    return P_hit, P_rej
 
-    return P_H, P_R
+def scale_features(X, scale, clr_transform):
 
+    if scale == True and clr_transform == True:
+        X_final = clr(multiplicative_replacement(closure(X)))
 
-def sage_testing(X, y, S, T, threshold):
+        return X_final
 
-    F_set = S.union(T)
+    elif scale == True and clr_transform == False:
+        X_final = closure(X)
 
-    F_set = list(F_set)
-    F_set.sort()
-    F_set = np.asarray(F_set)
+        return X_final
 
-    V = []
+    return X
 
-    rnd = np.random.Generator(PCG64())
-    X_perm = np.copy(X[:, F_set], "C")
-    for col in range(X_perm.shape[1]):
-        rnd.shuffle(X_perm[:, col])
+def get_shadow(X, scale = True, clr_transform = True):
+    """
+    Creates permuted fatures and appends these features to
+    the original dataframe. Features are then scaled.
+    """
 
-    X_comb = np.hstack((X[:, F_set], X_perm))
+    #Create a NumPy array the same size of X
+    X_perm = np.zeros(shape = X.shape, dtype = X.dtype).transpose()
 
-    X_1, X_2, y_1, y_2 = train_test_split(X_comb, y, train_size=0.5, stratify=y)
+    #Loop through each column and sample without replacement to create shadow features
+    for col in range(X_perm.shape[0]):
+        X_perm[col] = resample(X[:, col], replace = False, n_samples = X_perm.shape[1])
 
-    # For X_1
-    model = ExtraTreesClassifier(384, max_depth=5).fit(X_1, y_1)
-    imputer = sage.MarginalImputer(model, X_2)
-    estimator = sage.PermutationEstimator(imputer)
-    V_1 = estimator(X_2, y_2, bar=False).values
+    X_final = np.hstack((X, X_perm.transpose()))
 
-    # For X_2
-    model = ExtraTreesClassifier(384, max_depth=5).fit(X_2, y_2)
-    imputer = sage.MarginalImputer(model, X_1)
-    estimator = sage.PermutationEstimator(imputer)
-    V_2 = estimator(X_1, y_1, bar=False).values
+    #Only grab the non-zero features
+    nzr = np.where(np.sum(X_final, axis = 1) > 0, True, False)
+    X_final = X_final[nzr]
 
-    V.append(np.vstack((V_1, V_2)).mean(axis=0))
+    #Scale
+    X_final = scale_features(X_final, scale, clr_transform)
 
-    V = np.mean(V, axis=0)
+    return X_final
 
-    V = V[: len(F_set)] > np.percentile(V[len(F_set) :], threshold)
+def shap_scores(M, X):
+    """
+    Get Shapley Scores
+    """
 
-    return V
+    explainer = sh.Explainer(M)
 
+    s = np.abs(explainer(X, check_additivity=False).values)
 
-def select_features(
-    X, y, max_iter, alpha, threshold, threshold_2, p, p_2, verbose, n_jobs
-):
+    if s.ndim > 2:
+        s = s.mean(axis = 2)
+        
+    s = s.mean(axis = 0)
 
-    # Prepare parameters and tracking dictionaries
-    IDX = np.asarray([i for i in range(X.shape[1])])
-    COMPARISONS = 1
+    return s
 
+def get_hits(X, y):
+    """
+    Return two NumPy arrays: One of real impact scores and the second of shadow impact scores
+    """
+
+    if X.ndim > 1:
+        X_tmp = np.copy(X, "C")
+
+    else:
+        X_tmp = X.reshape(-1, 1)
+
+    X_resamp = get_shadow(X_tmp)
+    
+    n_features = X.shape[1]
+
+    clf = ExtraTreesClassifier(512, bootstrap = True).fit(X_resamp, y)
+    S_r = shap_scores(clf, X_resamp)
+    
+    S_p = S_r[n_features:]
+    S_r = S_r[0:n_features]
+
+    return S_r, S_p
+
+def fs(X, y, C_ID, C):
+    """
+    Randomly determine the impact of one feature from each cluster
+    """
+
+    class_set = np.unique(y)
+    n_class = class_set.shape[0]
+
+    #Select Random Feature from Each Cluster
+    S = np.asarray([np.random.choice(C[k], size = 1)[0] for k in C_ID])
+
+    #Get Shapley impact scores
+    S_r, S_p = get_hits(X[:, S], y)
+
+    return S_r, S_p
+
+def stage_1(X, y, alpha, p, n_jobs, C_ID, C):
+    
+    #Calculate how often features are selected by various algorithms
+    D = Parallel(n_jobs)(
+            delayed(fs)(
+                    X,
+                    y,
+                    C_ID, 
+                    C)
+                for _ in range(75)
+                )
+
+    H_real = np.asarray([x[0] for x in D])
+    H_shadow = np.asarray([x[1] for x in D])
+
+    #Calculate p-values associated with each feature using the Wilcoxon Test
+    p_vals_raw = []
+    for column in range(H_real.shape[1]):
+        T_stat, p_val = wilcoxon(H_real[:, column], H_shadow[:, column], alternative = "greater")
+        p_vals_raw.append(p_val)
+
+    #Correct for multiple comparisons
+    H_fdr = multipletests(p_vals_raw, alpha, method = "fdr_bh")[0]
+
+    return H_fdr
+   
+def update_lists(A, T, R, C_INDS, PH, PR):
+    """
+    Update sets of retained, rejected, and tentative features
+    """
+
+    A_new = set(C_INDS[PH])
+    A_new = A.union(A_new)
+    
+    R_new = set(C_INDS[PR])
+    R_new = R.union(R_new)
+    
+    T_new = set(C_INDS) - R_new - A_new
+
+    T_idx = list(T_new)
+
+    return A_new, T_new, R_new, np.asarray(T_idx)
+
+def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
+
+    #Cluster Features
+    X_final = scale_features(X, scale, clr_transform)
+
+    D = pairwise_distances(X_final.T, metric = metric)
+
+    if linkage_method == "complete":
+        D = hierarchy.complete(D)
+
+    elif linkage_method == "ward":
+        D = hierarchy.ward(D)
+
+    elif linkage_method == "single":
+        D = hierarchy.single(D)
+
+    elif linkage_method == "average":
+        D = hierarchy.average(D)
+
+    elif linkage_method == "centroid":
+        D = hierarchy.centroid(D)
+
+    cluster_ids = hierarchy.fcluster(D, T, criterion=criterion) #Was 2 for Flynn
+    cluster_id_to_feature_ids = defaultdict(list)
+
+    selected_clusters_ = []
+    for idx, cluster_id in enumerate(cluster_ids):
+        cluster_id_to_feature_ids[cluster_id].append(idx)
+
+    for id in cluster_id_to_feature_ids.keys():
+        selected_clusters_.append(id)
+
+    return selected_clusters_, cluster_id_to_feature_ids
+
+def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion, verbose, n_jobs, scale = True, clr_transform = True):
+
+    #Get clusters
+    selected_clusters_, cluster_id_to_feature_ids = get_clusters(X, linkage, thresh, criterion, scale, clr_transform, metric)
+
+    #Prepare parameters and tracking dictionaries
     F_accepted = set()
     F_rejected = set()
     F_tentative = set()
 
-    T_idx = IDX.copy("C")
+    T_idx = np.copy(selected_clusters_, "C")
 
-    # Stage 1: Calculate significance of features in a similar manner as Boruta
+    #Stage 1: Calculate Initial Significance - Only Remove Unimportant Features
     if verbose > 0:
-        print("Starting Stage 1...")
-        print("Identifying an initial set of features...")
+        print("Stage One: Identifying an initial set of tentative features...")
 
-    # Calculate how often features are selected by various algorithms
-    H = Parallel(n_jobs)(delayed(fs)(X, y, threshold) for _ in range(10))
+    H_arr = []
+    IDX = {x: i for i, x in enumerate(T_idx)}
+    for n_iter in range(max_iter):
+        ITERATION = n_iter + 1
 
-    H = np.asarray(H)
+        H_new = stage_1(X, y, alpha, p, n_jobs, T_idx, cluster_id_to_feature_ids)
 
+        if ITERATION > 1:
+            H_arr = np.vstack((H_arr, [H_new]))
+
+        else:
+            H_arr.append(H_new)
+
+        if ITERATION >= 5:
+            P_h, P_r = beta_binom_test(H_arr, ITERATION - 4, alpha, p)
+            
+            F_accepted, F_tentative, F_rejected, _ = update_lists(F_accepted,
+                                                                  F_tentative,
+                                                                  F_rejected,
+                                                                  T_idx,
+                                                                  P_h,
+                                                                  P_r)
+
+            T_idx = np.asarray(list(F_tentative))
+
+            idx = np.asarray([IDX[x] for x in T_idx])
+
+            if len(F_tentative) == 0:
+                break
+
+            else:
+                H_arr = H_arr[:, idx]
+
+                IDX = {x: i for i, x in enumerate(T_idx)}
+
+        if verbose > 0:
+            print("Round %d" %(ITERATION),
+                  "/ Tentative (Accepted):", len(F_accepted),
+                  "/ Tentative (Not Accepted):", len(F_tentative), 
+                  "/ Rejected:", len(F_rejected),
+                  sep = " ")
+
+    S = []
+    rev_cluster_id = {}
+    for C in F_accepted:
+        for entry in cluster_id_to_feature_ids[C]:
+            S.append(entry)
+
+            rev_cluster_id[entry] = C
+
+    S.sort()
+    S_1 = np.asarray(S)
+
+    #Stage 2: Determine the best feature from each cluster using Sage
     if verbose > 0:
-        print("Refining features...")
+        print("Stage Two: Identifying best features from each cluster...")
 
-    for i in range(max_iter):
-        if len(T_idx) > 2:
+    y_enc = LabelEncoder().fit_transform(y)
 
-            P_H = np.zeros(shape=(H.shape[1]), dtype=bool)
-            P_R = np.zeros(shape=(H.shape[1]), dtype=bool)
+    model = ExtraTreesClassifier(3072, bootstrap = True, n_jobs = 5).fit(X[:, S], y_enc)
 
-            P_h, P_r = binomial_test(H[:, T_idx], COMPARISONS, alpha, p)
+    I = sg.MarginalImputer(model, X[:, S])
+    E = sg.SignEstimator(I)
+    self.sage = E(X[:, S], y_enc)
+    S_vals = self.sage.values
 
-            for k, loc in enumerate(T_idx):
-                P_H[loc] = P_h[k]
-                P_R[loc] = P_r[k]
+    best_in_clus = {}
+    for ix, f_val in enumerate(S_vals):
+        F_id = S[ix]
+        C = rev_cluster_id[F_id]
 
-            # Get index of hits
-            F_accepted = F_accepted.union(set(IDX[P_H]))
+        if C not in best_in_clus:
+            best_in_clus[C] = (F_id, f_val)
 
-            # Get index of rejections
-            F_rejected = F_rejected.union(set(IDX[P_R]))
-            R = list(F_rejected)
-            R.sort()
+        else:
+            if f_val > best_in_clus[C][1]:
+                best_in_clus[C] = (F_id, f_val)
 
-            # Ensure no hits are recorded for rejected columns
-            for col in IDX[P_R]:
-                H[:, col] = np.zeros(shape=(H.shape[0]), dtype=bool)
-
-            # Get index of tentative
-            F_tentative = set(IDX) - F_accepted.union(F_rejected)
-
-            # Update T_idx
-            T = list(F_tentative)
-            T.sort()
-            T_idx = T
-
-            if verbose > 0:
-                print(
-                    "Iteration:",
-                    i + 1,
-                    "/ Confirmed:",
-                    len(F_accepted),
-                    "/ Tentative:",
-                    len(F_tentative),
-                    "/ Rejected:",
-                    len(F_rejected),
-                    sep=" ",
-                )
-
-            # Update the comparisons tracker
-            if len(T_idx) > 2:
-                COMPARISONS += 1
-
-                # Add a new set of hits
-                H_tmp = fs(X[:, T], y, threshold)
-
-                H_new = np.zeros(shape=(H.shape[1]), dtype=bool)
-                for i, entry in enumerate(T_idx):
-                    H_new[entry] = H_tmp[i]
-
-                H = np.vstack((H, H_new))
-
-    # Stage 2: Use SAGE to find final set of features
+    S_2 = [v[0] for _, v in best_in_clus.items()]
+    S_2.sort()
+    S_2 = np.asarray(S_2)
+        
     if verbose > 0:
-        print("Starting Stage 2...")
-        print("Using SAGE with remaining features...")
+        print("Final Feature Set Contains %s Features." %str(S_1.shape[0]))
+        print("Final Set of Best Features Contains %s Features." %str(S_2.shape[0]))
 
-    H = Parallel(n_jobs)(
-        delayed(sage_testing)(X, y, F_accepted, F_tentative, threshold_2)
-        for _ in range(15)
-    )
-
-    H = np.asarray(H)
-
-    P_h, _ = binomial_test(H, 1, 0.05, p_2)
-
-    if verbose > 0:
-        print("Finalizing...")
-
-    F_set = F_accepted.union(F_tentative)
-    F_set = list(F_set)
-    F_set.sort()
-    F_set = np.asarray(F_set)
-    F_accepted = F_set[P_h]
-
-    # Create and populate array using the original transfomed dimensions
-    S = np.zeros(shape=(X.shape[1],), dtype=bool)
-    for i, loc in enumerate(F_accepted):
-        S[IDX[loc]] = True
-
-    if verbose > 0:
-        print("Final Confirmed Contains %s Features." % str(len(F_accepted)))
-
-    return S
-
-
-# Class which combines the above method into a nice interface
+    return S_1, S_2, S_vals
+    
+##################################################################################
+#Triglav Class
+##################################################################################
 class Triglav(TransformerMixin, BaseEstimator):
     """
     Inputs:
 
-    threshold and threshold_2: int, default = 95 and 95
-        The threshold for comparing shadow and real features in the
-        first and second stage.
+    threshold and threshold_2: int, default = 99.5 and 100
+        The threshold for comparing shadow and real features in the 
+        when using SHAP and SAGE scores.
 
-    p and p_2: float, default = 0.55 and 0.55
-        The 'p' parameter of the Binomial distribution at stages 1 and 2.
+    metric: str, default = "correlation"
+        The dissimilarity measure used to calculate distances between
+        features.
+
+    linkage: str, default = "complete"
+
+    thresh: float, default = 2.0
+
+    criterion: str, default = "distance"
+
+    p: float, default = 0.35
+        The 'p' parameter used to determine the shape of the Beta-Binomial 
+        distribution.
 
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
 
-    max_iter: int, default = 50
-        The maximum number of iterations.
-
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
 
-    n_jobs: int, default = 5
+    n_jobs: int, default = 3
         The number of threads
 
     Returns:
@@ -472,24 +386,28 @@ class Triglav(TransformerMixin, BaseEstimator):
     An Triglav object.
     """
 
-    def __init__(
-        self,
-        threshold: int = 95,
-        threshold_2: int = 95,
-        p: float = 0.55,
-        p_2: float = 0.55,
-        alpha: float = 0.05,
-        max_iter: int = 50,
-        verbose: int = 0,
-        n_jobs: int = 5,
-    ):
+    def __init__(self,
+                 n_iter: int = 40,
+                 p: float = 0.65,
+                 metric: str = "correlation",
+                 linkage: str = "complete",
+                 thresh: float = 2.0,
+                 criterion: str = "distance",
+                 alpha: float = 0.05,
+                 scale = True,
+                 clr_transform = False,
+                 verbose: int = 0, 
+                 n_jobs: int = 10):
 
-        self.threshold = threshold
-        self.threshold_2 = threshold_2
+        self.n_iter = n_iter
         self.p = p
-        self.p_2 = p_2
+        self.metric = metric
+        self.linkage = linkage
+        self.thresh = thresh
+        self.criterion = criterion
         self.alpha = alpha
-        self.max_iter = max_iter
+        self.scale = scale
+        self.clr_transform = clr_transform
         self.verbose = verbose
         self.n_jobs = n_jobs
 
@@ -513,19 +431,21 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.classes_, y_int_ = np.unique(y_in, return_inverse=True)
         self.n_class_ = self.classes_.shape[0]
 
-        # Get the base distribution of EC scores
-        self.selected_ = select_features(
-            X_in,
-            y_int_,
-            self.max_iter,
-            self.alpha,
-            self.threshold,
-            self.threshold_2,
-            self.p,
-            self.p_2,
-            self.verbose,
-            self.n_jobs,
-        )
+        # Find relevant features
+        self.selected_, self.selected_best_, self.sage_values_ = select_features(
+                max_iter = n_iter,
+                X = X_in,
+                y = y_int_,
+                alpha = self.alpha,
+                p = self.p,
+                metric = self.metric,
+                linkage = self.linkage,
+                thresh = self.thresh,
+                criterion = self.criterion,
+                verbose = self.verbose,
+                scale = self.scale,
+                clr_transform = self.clr_transform,
+                n_jobs = self.n_jobs)
 
         return self
 
@@ -541,7 +461,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
         the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         """
-        check_is_fitted(self, attributes="selected_")
+        check_is_fitted(self, attributes = "selected_")
 
         return X[:, self.selected_]
 
@@ -553,32 +473,23 @@ class Triglav(TransformerMixin, BaseEstimator):
 
     def _check_params(self, X, y):
 
-        # Check if X and y are consistent
-        X_in, y_in = check_X_y(X, y, estimator="Triglav")
-
-        # Basic check on parameter bounds
-        if (self.threshold <= 0 or self.threshold > 100) or (
-            self.threshold_2 <= 0 or self.threshold_2 > 100
-        ):
-            raise ValueError("The 'threshold' parameter should be between 1 and 100.")
-
+        #Check if X and y are consistent
+        X_in, y_in = check_X_y(X, y, estimator = "Triglav")
+        
+        #Basic check on parameter bounds
         if self.alpha <= 0 or self.alpha > 1:
             raise ValueError("The 'alpha' parameter should be between 0 and 1.")
 
-        if (self.p <= 0 or self.p > 1) or (self.p_2 <= 0 or self.p_2 > 1):
+        if self.p <= 0 or self.p > 1:
             raise ValueError("The 'p' parameter should be between 0 and 1.")
 
         if self.verbose < 0:
-            raise ValueError(
-                "The 'verbose' parameter should be greater than or equal to zero."
-            )
-
-        if self.max_iter <= 0:
-            raise ValueError("The 'max_iter' parameter should be greater than zero.")
+            raise ValueError("The 'verbose' parameter should be greater than or equal to zero.")
 
         if self.n_jobs <= 0:
-            raise ValueError(
-                "The 'n_jobs' parameter should be greater than or equal to one."
-            )
+            raise ValueError("The 'n_jobs' parameter should be greater than or equal to one.")
+
+        #Add for metric, scale, clr_transform
 
         return X_in, y_in
+
