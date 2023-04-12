@@ -29,31 +29,39 @@ Once downloaded, go to the location of the download and type:
 ### Class Parameters
     Inputs:
 
-    threshold and threshold_2: int, default = 99.5 and 100
-        The threshold for comparing shadow and real features in the 
-        when using SHAP and SAGE scores.
-
     metric: str, default = "correlation"
         The dissimilarity measure used to calculate distances between
         features.
 
     linkage: str, default = "complete"
+        The type of hierarchical clustering method to apply. The available
+        methods include: single, complete, ward, average, centroid.
 
     thresh: float, default = 2.0
+        The threshold or max number of clusters.
 
     criterion: str, default = "distance"
+        The method used to form flat clusters. The available methods
+        include: inconsistent, distance, maxclust, monocrit,
+        maxclust_monocrit.
 
-    p: float, default = 0.35
+    p: float, default = 0.65
         The 'p' parameter used to determine the shape of the Beta-Binomial 
         distribution.
 
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
 
+    scale: bool, default = True
+        Scales the data so the sum of each row is equal to one.
+
+    clr_transform: bool, default = False
+        Applies the centered log ratio to the dataset.
+
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
 
-    n_jobs: int, default = 3
+    n_jobs: int, default = 10
         The number of threads
 
     Returns:
