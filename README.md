@@ -85,7 +85,7 @@ Once downloaded, go to the location of the download and type:
 
         Returns:
 
-        A fitted mECFS object.
+        A fitted Triglav object.
 
 ### Transform Parameters
         Input:
