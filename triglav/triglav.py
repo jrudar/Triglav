@@ -37,23 +37,24 @@ from gc import collect
 ##################################################################################
 #Utility Functions
 ##################################################################################
-def beta_binom_test(X, C, alpha = 0.05, p=0.5):
+def beta_binom_test(X, C, alpha, p):
 
     THRESHOLD = alpha / C #For FWER correction
 
     n = X.shape[0] #Number of trials
 
-    #The distribution of p should depend on the total number of trials
-    a = p * n
-    b = n - a
+    #Estimate sigma for a given prior, p
+    a_0 = p * n
+    b_0 = n - a_0
 
     P_hit = []
     P_rej = []
     for column in range(X.shape[1]):
 
-        pval = betabinom.sf(X[:, column].sum()-1, n, a, b, loc=0)
+        pval = betabinom.sf(X[:, column].sum() - 1, n, a_0, b_0, loc=0)
 
         P_hit.append(pval)
+
         P_rej.append(1.0 - pval)
 
     P_hit = np.asarray(P_hit)
@@ -213,7 +214,7 @@ def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
 
     #Cluster Features
     X_final = scale_features(X, scale, clr_transform)
-
+    
     D = pairwise_distances(X_final.T, metric = metric)
 
     if linkage_method == "complete":
@@ -245,10 +246,14 @@ def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
 
 def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion, verbose, n_jobs, scale = True, clr_transform = True):
 
-    #Get clusters
-    selected_clusters_, cluster_id_to_feature_ids = get_clusters(X, linkage, thresh, criterion, scale, clr_transform, metric)
+    #Remove zero-variance features
+    nZVF = VarianceThreshold().fit(X)
+    X_red = nZVF.transform(X)
 
-    #Prepare parameters and tracking dictionaries
+    #Get clusters
+    selected_clusters_, cluster_id_to_feature_ids = get_clusters(X_red, linkage, thresh, criterion, scale, clr_transform, metric)
+
+    #Prepare tracking dictionaries
     F_accepted = set()
     F_rejected = set()
     F_tentative = set()
@@ -318,12 +323,14 @@ def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion
 
     y_enc = LabelEncoder().fit_transform(y)
 
-    model = ExtraTreesClassifier(3072, bootstrap = True, n_jobs = 5).fit(X[:, S], y_enc)
+    X_red = scale_features(X_red, scale, clr_transform)
+
+    model = ExtraTreesClassifier(3072, n_jobs = 5).fit(X_red[:, S_1], y_enc)
 
     I = sg.MarginalImputer(model, X[:, S])
     E = sg.SignEstimator(I)
-    self.sage = E(X[:, S], y_enc)
-    S_vals = self.sage.values
+    sage = E(X[:, S], y_enc)
+    S_vals = sage.values
 
     best_in_clus = {}
     for ix, f_val in enumerate(S_vals):
@@ -341,11 +348,25 @@ def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion
     S_2.sort()
     S_2 = np.asarray(S_2)
         
+    #Return to original size
+    S1s = np.zeros(shape = (X_red.shape[1],), dtype = int)
+    S2s = np.zeros(shape = (X_red.shape[1],), dtype = int)
+
+    for entry in S_1:
+        S1s[entry] = 1
+    S_1 = nZVF.inverse_transform([S1s])[0]
+    S_1 = np.where(S_1 > 0, True, False)
+
+    for entry in S_2:
+        S2s[entry] = 1
+    S_2 = nZVF.inverse_transform([S2s])[0]
+    S_2 = np.where(S_2 > 0, True, False)
+
     if verbose > 0:
         print("Final Feature Set Contains %s Features." %str(S_1.shape[0]))
         print("Final Set of Best Features Contains %s Features." %str(S_2.shape[0]))
 
-    return S_1, S_2, S_vals
+    return S_1, S_2, sage
     
 ##################################################################################
 #Triglav Class
@@ -354,26 +375,34 @@ class Triglav(TransformerMixin, BaseEstimator):
     """
     Inputs:
 
-    threshold and threshold_2: int, default = 99.5 and 100
-        The threshold for comparing shadow and real features in the 
-        when using SHAP and SAGE scores.
-
     metric: str, default = "correlation"
         The dissimilarity measure used to calculate distances between
         features.
 
     linkage: str, default = "complete"
+        The type of hierarchical clustering method to apply. The available
+        methods include: single, complete, ward, average, centroid.
 
     thresh: float, default = 2.0
+        The threshold or max number of clusters.
 
     criterion: str, default = "distance"
+        The method used to form flat clusters. The available methods
+        include: inconsistent, distance, maxclust, monocrit,
+        maxclust_monocrit.
 
-    p: float, default = 0.35
+    p: float, default = 0.65
         The 'p' parameter used to determine the shape of the Beta-Binomial 
         distribution.
 
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
+
+    scale: bool, default = True
+        Scales the data so the sum of each row is equal to one.
+
+    clr_transform: bool, default = True
+        Applies the centered log ratio to the dataset.
 
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
@@ -433,7 +462,7 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         # Find relevant features
         self.selected_, self.selected_best_, self.sage_values_ = select_features(
-                max_iter = n_iter,
+                max_iter = self.n_iter,
                 X = X_in,
                 y = y_int_,
                 alpha = self.alpha,
@@ -489,7 +518,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         if self.n_jobs <= 0:
             raise ValueError("The 'n_jobs' parameter should be greater than or equal to one.")
 
-        #Add for metric, scale, clr_transform
+        #Add for metric, scale, clr_transform, etc
 
         return X_in, y_in
 
