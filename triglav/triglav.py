@@ -103,10 +103,6 @@ def get_shadow(X, scale = True, clr_transform = True):
 
     X_final = np.hstack((X, X_perm.transpose()))
 
-    #Only grab the non-zero features
-    nzr = np.where(np.sum(X_final, axis = 1) > 0, True, False)
-    X_final = X_final[nzr]
-
     #Scale
     X_final = scale_features(X_final, scale, clr_transform)
 
