@@ -43,7 +43,7 @@ def beta_binom_test(X, C, alpha, p):
 
     n = X.shape[0] #Number of trials
 
-    #Estimate sigma for a given prior, p
+    #shape parameters for each iteration using n and p
     a_0 = p * n
     b_0 = n - a_0
 
