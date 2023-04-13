@@ -14,10 +14,16 @@
        their shadow counterparts using a Wilcoxon signed-rank test. p-values 
        are adjusted to correct for multiple comparisons across each round. 
        Only features below a pre-specified alpha are considered a "hit".
+       This should return all relevant features since features are chosen based
+       on which clusters are retained. Furthermore, this approach is model
+       avoids potential biases associated with feature importance scores from
+       Random Forest models.
        
     3) A beta-binomial distribution is used to calculate the p-value
        associated with each hit. These are corrected for multiple
-       comparisions (FDR and FWER).
+       comparisions (FDR and FWER). This model may be more appropriate since
+       the successful selection of a cluster at each round may be less likely
+       due since only one feature per cluster is tested.
         
     5) After the iterative refinement stage SAGE scores are used to select
        the best feature from each cluster.
