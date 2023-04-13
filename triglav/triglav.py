@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 from sklearn.exceptions import ConvergenceWarning
 warnings.filterwarnings("ignore", category=ConvergenceWarning, module = "sklearn")
@@ -28,7 +30,7 @@ from scipy.cluster import hierarchy
 
 from skbio.stats.composition import multiplicative_replacement, closure, clr
 
-import typing
+from typing import Union
 
 from collections import defaultdict
 
@@ -43,7 +45,7 @@ def beta_binom_test(X, C, alpha, p):
 
     n = X.shape[0] #Number of trials
 
-    #shape parameters for each iteration using n and p
+    #Estimate sigma for a given prior, p
     a_0 = p * n
     b_0 = n - a_0
 
@@ -76,19 +78,22 @@ def beta_binom_test(X, C, alpha, p):
 
 def scale_features(X, scale, clr_transform):
 
+    zero_samps = np.where(np.sum(X, axis = 1) == 0, False, True)
+
     if scale == True and clr_transform == True:
-        X_final = clr(multiplicative_replacement(closure(X)))
+
+        X_final = clr(multiplicative_replacement(closure(X[zero_samps])))
 
         return X_final
 
     elif scale == True and clr_transform == False:
-        X_final = closure(X)
+        X_final = closure(X[zero_samps])
 
         return X_final
 
-    return X
+    return X[zero_samps]
 
-def get_shadow(X, scale = True, clr_transform = True):
+def get_shadow(X, scale, clr_transform):
     """
     Creates permuted fatures and appends these features to
     the original dataframe. Features are then scaled.
@@ -124,7 +129,7 @@ def shap_scores(M, X):
 
     return s
 
-def get_hits(X, y):
+def get_hits(X, y, scale, clr_transform):
     """
     Return two NumPy arrays: One of real impact scores and the second of shadow impact scores
     """
@@ -135,7 +140,7 @@ def get_hits(X, y):
     else:
         X_tmp = X.reshape(-1, 1)
 
-    X_resamp = get_shadow(X_tmp)
+    X_resamp = get_shadow(X_tmp, scale, clr_transform)
     
     n_features = X.shape[1]
 
@@ -147,7 +152,7 @@ def get_hits(X, y):
 
     return S_r, S_p
 
-def fs(X, y, C_ID, C):
+def fs(X, y, C_ID, C, scale, clr_transform):
     """
     Randomly determine the impact of one feature from each cluster
     """
@@ -159,11 +164,11 @@ def fs(X, y, C_ID, C):
     S = np.asarray([np.random.choice(C[k], size = 1)[0] for k in C_ID])
 
     #Get Shapley impact scores
-    S_r, S_p = get_hits(X[:, S], y)
+    S_r, S_p = get_hits(X[:, S], y, scale, clr_transform)
 
     return S_r, S_p
 
-def stage_1(X, y, alpha, p, n_jobs, C_ID, C):
+def stage_1(X, y, alpha, p, n_jobs, C_ID, C, scale, clr_transform):
     
     #Calculate how often features are selected by various algorithms
     D = Parallel(n_jobs)(
@@ -171,7 +176,9 @@ def stage_1(X, y, alpha, p, n_jobs, C_ID, C):
                     X,
                     y,
                     C_ID, 
-                    C)
+                    C, 
+                    scale, 
+                    clr_transform)
                 for _ in range(75)
                 )
 
@@ -228,7 +235,7 @@ def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
     elif linkage_method == "centroid":
         D = hierarchy.centroid(D)
 
-    cluster_ids = hierarchy.fcluster(D, T, criterion=criterion) #Was 2 for Flynn
+    cluster_ids = hierarchy.fcluster(D, T, criterion=criterion)
     cluster_id_to_feature_ids = defaultdict(list)
 
     selected_clusters_ = []
@@ -240,7 +247,7 @@ def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
 
     return selected_clusters_, cluster_id_to_feature_ids
 
-def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion, verbose, n_jobs, scale = True, clr_transform = True):
+def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion, verbose, n_jobs, scale, clr_transform):
 
     #Remove zero-variance features
     nZVF = VarianceThreshold().fit(X)
@@ -265,7 +272,7 @@ def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion
     for n_iter in range(max_iter):
         ITERATION = n_iter + 1
 
-        H_new = stage_1(X, y, alpha, p, n_jobs, T_idx, cluster_id_to_feature_ids)
+        H_new = stage_1(X, y, alpha, p, n_jobs, T_idx, cluster_id_to_feature_ids, scale, clr_transform)
 
         if ITERATION > 1:
             H_arr = np.vstack((H_arr, [H_new]))
@@ -359,8 +366,8 @@ def select_features(X, max_iter, y, alpha, p, metric, linkage, thresh, criterion
     S_2 = np.where(S_2 > 0, True, False)
 
     if verbose > 0:
-        print("Final Feature Set Contains %s Features." %str(S_1.shape[0]))
-        print("Final Set of Best Features Contains %s Features." %str(S_2.shape[0]))
+        print("Final Feature Set Contains %s Features." %str(S_1.sum()))
+        print("Final Set of Best Features Contains %s Features." %str(S_2.sum()))
 
     return S_1, S_2, sage
     
@@ -416,11 +423,11 @@ class Triglav(TransformerMixin, BaseEstimator):
                  p: float = 0.65,
                  metric: str = "correlation",
                  linkage: str = "complete",
-                 thresh: float = 2.0,
+                 thresh: Union[int, float] = 2.0,
                  criterion: str = "distance",
                  alpha: float = 0.05,
-                 scale = True,
-                 clr_transform = False,
+                 scale: bool = True,
+                 clr_transform: bool = False,
                  verbose: int = 0, 
                  n_jobs: int = 10):
 
@@ -436,7 +443,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.verbose = verbose
         self.n_jobs = n_jobs
 
-    def fit(self, X, y):
+    def fit(self, X: np.ndarray, y: np.ndarray) -> Triglav:
         """
         Inputs:
 
@@ -448,7 +455,7 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         Returns:
 
-        A fitted mECFS object.
+        A fitted Triglav object.
         """
 
         X_in, y_in = self._check_params(X, y)
@@ -474,7 +481,7 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         return self
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
         """
         Input:
 
@@ -490,13 +497,48 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         return X[:, self.selected_]
 
-    def fit_transform(self, X, y):
+    def fit_transform(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
 
         self.fit(X, y)
 
         return self.transform(X)
 
     def _check_params(self, X, y):
+
+        crit_set = {"inconsistent", 
+                    "distance", 
+                    "maxclust", 
+                    "monocrit",
+                    "maxclust_monocrit"}
+
+        link_set = {"single", 
+                    "complete", 
+                    "ward", 
+                    "average", 
+                    "centroid"}
+
+        metrics = {'cityblock', 
+                   'cosine', 
+                   'euclidean', 
+                   'l1', 
+                   'l2',
+                   'manhattan', 
+                   'braycurtis', 
+                   'canberra', 
+                   'chebyshev',
+                   'correlation', 
+                   'dice', 
+                   'hamming', 
+                   'jaccard',
+                   'mahalanobis', 
+                   'minkowski', 
+                   'rogerstanimoto', 
+                   'russellrao',
+                   'seuclidean', 
+                   'sokalmichener', 
+                   'sokalsneath', 
+                   'sqeuclidean',
+                   'yule', }
 
         #Check if X and y are consistent
         X_in, y_in = check_X_y(X, y, estimator = "Triglav")
@@ -514,7 +556,20 @@ class Triglav(TransformerMixin, BaseEstimator):
         if self.n_jobs <= 0:
             raise ValueError("The 'n_jobs' parameter should be greater than or equal to one.")
 
-        #Add for metric, scale, clr_transform, etc
+        if self.thresh <= 0:
+            raise ValueError("The 'thresh' parameter should be greater than one.")
+
+        if self.metric not in metrics:
+            raise ValueError("The 'metric' parameter should be one supported by Scikit-Learn.")
+
+        if self.criterion not in crit_set:
+            raise ValueError("The 'criterion' parameter should be one supported in 'scipy.hierarchy'.")
+
+        if self.linkage not in link_set:
+            raise ValueError("The 'linkage' parameter should one supported in 'scipy.hierarchy'.")
+
+        if type(self.scale) is not bool or type(self.clr_transform) is not bool:
+            raise ValueError("The 'scale' and/or 'clr_transform' parameter(s) should be True or False.")
 
         return X_in, y_in
 
