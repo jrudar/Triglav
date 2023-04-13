@@ -9,7 +9,7 @@
     1) The "importance" of real and shadow features are based off of
        Shapley scores.
        
-    2) Features are clustered and nn ensemble approach is used to identify 
+    2) Features are clustered and an ensemble approach is used to identify 
        impactful clusters. Shapley scores of real feature are compared to 
        their shadow counterparts using a Wilcoxon signed-rank test. p-values 
        are adjusted to correct for multiple comparisons across each round. 
