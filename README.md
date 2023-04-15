@@ -180,6 +180,11 @@ Once downloaded, go to the location of the download and type:
     
 Figure 1: Clustering of Features. Colors are added by the SciPy Dendrogram function.
 ![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
+
+Figure 2: SAGE Values associated with each of the selected features. Five informative
+features were discovered by Triglav and two uninformative features (15 and 17) were
+also included.
+![alt text](https://github.com/jrudar/Triglav/blob/main/sage_values.jpeg?raw=true)
     
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
