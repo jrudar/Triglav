@@ -163,7 +163,7 @@ Once downloaded, go to the location of the download and type:
 	    X_test_trf = model.transform(X_test)
 	    
 	    #Visualize feature importance results using SAGE (Figure 2 below)
-	    model.sage_values_.plot_sign(feature_names = np.asarray([i for i in range(20)])[model.selected_best_])
+	    model.sage_values_.plot_sign(feature_names = np.asarray([i for i in range(20)])[model.selected_])
 
 	    #Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.910 / Transformed Data - Mean Score = 0.910)
 	    scores = cross_val_score(ExtraTreesClassifier(128, random_state = 0), 
