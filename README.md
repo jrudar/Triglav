@@ -121,7 +121,7 @@ Once downloaded, go to the location of the download and type:
 
 	if __name__ == "__main__":
 
-	    #Create the dataset
+	    #Create the dataset. The useful features are found in the first 7 columns of X (indicies 0-6)
 	    X, y = make_classification(n_samples = 200,
 				       n_features = 20,
 				       n_informative = 5,
@@ -147,6 +147,15 @@ Once downloaded, go to the location of the download and type:
 
 	    #Visualize clustering
 	    model.visualize_hclust(X_train, y_train)
+	    
+	    #Reset the threshold based on inspection of the dendrogram
+	    model.thresh = 1.25
+
+	    #Identify predictive features
+	    model.fit(X_train, y_train)
+
+	    #Transform the test data
+	    X_test_trf = model.transform(X_test)
     
 ![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
     
