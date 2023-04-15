@@ -111,15 +111,44 @@ Once downloaded, go to the location of the download and type:
         X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
         the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         
-### Example Usage
-        from triglav import Triglav
-        from sklearn.datasets import make_classification
-        
-        X, y = make_classification()
-        
-        model = Triglav().fit(X, y)
+### Example Usage - Set Up Triglav and Visualize Dendrogram
+from mECFS import Triglav
 
-	X_transformed = model.transform(X)
+from sklearn.datasets import make_classification
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import ExtraTreesClassifier
+
+if __name__ == "__main__":
+
+    #Create the dataset
+    X, y = make_classification(n_samples = 200,
+                               n_features = 20,
+                               n_informative = 5,
+                               n_redundant = 2,
+                               n_repeated = 0,
+                               n_classes = 2,
+                               shuffle = False,
+                               random_state = 0)
+
+    #Split into train and test sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, 
+                                                        test_size = 0.2, 
+                                                        random_state = 0, 
+                                                        stratify = y)
+
+    #Standardize
+    s_trf = StandardScaler().fit(X_train)
+    X_train = s_trf.transform(X_train)
+    X_test = s_trf.transform(X_test)
+
+    #Set up Triglav
+    model = Triglav(n_jobs = 4, scale = False, clr_transform=False)
+
+    #Visualize clustering
+    model.visualize_hclust(X_train, y_train)
+    
+    ![alt text](https://github.com/jrudar/Triglav/blob/main/clusters.jpg?raw=true)
 
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
