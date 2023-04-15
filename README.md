@@ -116,8 +116,13 @@ Once downloaded, go to the location of the download and type:
 
 	from sklearn.datasets import make_classification
 	from sklearn.preprocessing import StandardScaler
-	from sklearn.model_selection import train_test_split
+	from sklearn.model_selection import train_test_split, cross_val_score
 	from sklearn.ensemble import ExtraTreesClassifier
+
+	import seaborn as sns
+	import matplotlib.pyplot as plt
+	import pandas as pd
+	import numpy as np
 
 	if __name__ == "__main__":
 
@@ -156,6 +161,22 @@ Once downloaded, go to the location of the download and type:
 
 	    #Transform the test data
 	    X_test_trf = model.transform(X_test)
+	    
+	    #Visualize feature importance results using SAGE (Figure 2 below)
+	    model.sage_values_.plot_sign(feature_names = np.asarray([i for i in range(20)])[model.selected_best_])
+
+	    #Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.910 / Transformed Data - Mean Score = 0.910)
+	    scores = cross_val_score(ExtraTreesClassifier(128, random_state = 0), 
+	    			     X = np.vstack((X_train, X_test)), 
+				     y = np.hstack((y_train, y_test)), 
+				     cv = 10)
+	    print(np.mean(scores))
+	    
+	    scores = cross_val_score(ExtraTreesClassifier(128, random_state = 0), 
+	    			     X = np.vstack((model.transform(X_train), X_test_trf)), 
+				     y = np.hstack((y_train, y_test)), 
+				     cv = 10)
+	    print(np.mean(scores))	    
     
 Figure 1: Clustering of Features. Colors are added by the SciPy Dendrogram function.
 ![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
