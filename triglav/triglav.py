@@ -619,19 +619,22 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         return self.transform(X)
 
-    def visualize_hclust(self, X: np.ndarray):
+    def visualize_hclust(self, X: np.ndarray, y: np.ndarray):
         """
         Input:
 
         X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
         the number of features (taxa, OTUs, ASVs, etc).
 
+        y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+        of 'y' should be a factor.
+
         Returns:
 
         A visualization of the dendrogram given the current parameters. This figure
         will be saved as "Triglav_Dend.svg" in the current working directory.
         """
-        X_in, y_in = _check_params(X, y)
+        X_in, y_in = self._check_params(X, y)
 
         # Remove zero-variance features
         nZVF = VarianceThreshold().fit(X)
