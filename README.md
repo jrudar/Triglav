@@ -112,7 +112,7 @@ Once downloaded, go to the location of the download and type:
         the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         
 ### Example Usage - Set Up Triglav and Visualize Dendrogram
-	from mECFS import Triglav
+	from triglav import Triglav
 
 	from sklearn.datasets import make_classification
 	from sklearn.preprocessing import StandardScaler
@@ -157,7 +157,8 @@ Once downloaded, go to the location of the download and type:
 	    #Transform the test data
 	    X_test_trf = model.transform(X_test)
     
-![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
+	Figure 1: Clustering of Features
+	![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
     
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
@@ -165,3 +166,4 @@ This code is still in development. USE AT YOUR OWN RISK.
 ### References
 
 	Coming Soon
+
