@@ -145,7 +145,7 @@ Once downloaded, go to the location of the download and type:
 	    #Set up Triglav
 	    model = Triglav(n_jobs = 4, scale = False, clr_transform=False)
 
-	    #Visualize clustering
+	    #Visualize clustering (Figure 1 Below)
 	    model.visualize_hclust(X_train, y_train)
 	    
 	    #Reset the threshold based on inspection of the dendrogram
@@ -157,8 +157,8 @@ Once downloaded, go to the location of the download and type:
 	    #Transform the test data
 	    X_test_trf = model.transform(X_test)
     
-	Figure 1: Clustering of Features
-	![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
+Figure 1: Clustering of Features
+![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
     
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
