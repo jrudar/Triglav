@@ -429,7 +429,7 @@ def select_features(
             print("Final Set of Best Features Contains %s Features." % str(S_2.sum()))
 
     if run_stage_2:
-        return S_2, S_1, sage, D
+        return S_1, S_2, sage, D
 
     else:
         return S_1, None, None, D
