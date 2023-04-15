@@ -33,6 +33,8 @@ from typing import Union
 
 from collections import defaultdict
 
+from matplotlib import pyplot as plt
+
 
 ##################################################################################
 # Utility Functions
@@ -649,7 +651,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         # Plot Dendrogram
         fig, axes = plt.subplots(1, 1)
 
-        dend = hierarchy.dendrogram(D, ax=axes[0])
+        dend = hierarchy.dendrogram(D, ax=axes)
 
         plt.savefig("Triglav_Dend.svg")
 
