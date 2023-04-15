@@ -33,7 +33,24 @@ Once downloaded, go to the location of the download and type:
     pip install triglav-v0.0.1b.tar.gz
     
 ### Class Parameters
-    Inputs:
+
+    estimator: default = ExtraTreesClassifier(512, bootstrap = True)
+        The estimator used to calculate Shapley scores.
+
+    stage_2_estimator: default = ExtraTreesClassifier(512)
+        The estimator used to calculate SAGE values. Only used if the
+        'run_stage_2' is set to True.
+
+    n_iter: int, default = 40
+        The number of iterations to run Triglav.
+
+    p_1: float, default = 0.65
+        Used to determine the shape of the Beta-Binomial distribution
+        modelling hits.
+
+    p_2: float, default = 0.30
+        Used to determine the shape of the Beta-Binomial distribution
+        modelling failures.
 
     metric: str, default = "correlation"
         The dissimilarity measure used to calculate distances between
@@ -51,28 +68,24 @@ Once downloaded, go to the location of the download and type:
         include: inconsistent, distance, maxclust, monocrit,
         maxclust_monocrit.
 
-    p: float, default = 0.65
-        The 'p' parameter used to determine the shape of the Beta-Binomial 
-        distribution.
-
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
 
     scale: bool, default = True
         Scales the data so the sum of each row is equal to one.
 
-    clr_transform: bool, default = False
+    clr_transform: bool, default = True
         Applies the centered log ratio to the dataset.
+
+    run_stage_2: bool, default = True
+        This stage will determine the best feature from each of the
+        selected clusters by calculating SAGE values.
 
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
 
     n_jobs: int, default = 10
         The number of threads
-
-    Returns:
-
-    An Triglav object.
             
 ### Fit Parameters
         Inputs:
