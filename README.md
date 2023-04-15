@@ -148,9 +148,9 @@ if __name__ == "__main__":
     #Visualize clustering
     model.visualize_hclust(X_train, y_train)
     
-    ![alt text](https://github.com/jrudar/Triglav/blob/main/clusters.jpg?raw=true)
+![alt text](https://github.com/jrudar/Triglav/blob/main/clusters.jpg?raw=true)
     
-    https://github.com/jrudar/Triglav/blob/main/clusters.jpg
+https://github.com/jrudar/Triglav/blob/main/clusters.jpg
 
 ### Disclaimer
 This code is still in development. USE AT YOUR OWN RISK.
