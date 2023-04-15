@@ -157,7 +157,7 @@ Once downloaded, go to the location of the download and type:
 	    #Transform the test data
 	    X_test_trf = model.transform(X_test)
     
-Figure 1: Clustering of Features
+Figure 1: Clustering of Features. Colors are added by the SciPy Dendrogram function.
 ![alt text](https://github.com/jrudar/Triglav/blob/main/Triglav_Dend.jpg?raw=true)
     
 ### Disclaimer
