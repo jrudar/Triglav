@@ -40,6 +40,11 @@ Once downloaded, go to the location of the download and type:
     stage_2_estimator: default = ExtraTreesClassifier(512)
         The estimator used to calculate SAGE values. Only used if the
         'run_stage_2' is set to True.
+	
+    per_class_imp: bool, default = False
+        Specifies if importance scores are calculated globally or per
+        class. Note, per class importance scores are calculated in a
+        one vs rest manner.
 
     n_iter: int, default = 40
         The number of iterations to run Triglav.
