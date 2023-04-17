@@ -11,7 +11,7 @@ from numpy.random import PCG64
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.utils import check_X_y, resample
 from sklearn.base import TransformerMixin, BaseEstimator, clone
-from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.utils.validation import check_is_fitted
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import LabelEncoder
@@ -120,30 +120,40 @@ def get_shadow(X, scale, clr_transform):
     return X_final, zero_samps
 
 
-def shap_scores(M, X):
+def shap_scores(M, X, per_class):
     """
     Get Shapley Scores
     """
 
-    if type(M) == ExtraTreesClassifier:
+    tree_supported = {ExtraTreesClassifier, HistGradientBoostingClassifier, RandomForestClassifier}
+
+    if type(M) in tree_supported:
         explainer = sh.Explainer(M)
 
-        s = np.abs(explainer(X, check_additivity=False).values)
+        s = explainer(X, check_additivity=False).values
 
     else:
         explainer = sh.Explainer(M, X)
 
-        s = np.abs(explainer(X).values)
+        s = explainer(X).values
 
-    if s.ndim > 2:
-        s = s.mean(axis=2)
+    if per_class == True:
 
-    s = s.mean(axis=0)
+        return s
 
-    return s
+    else:
+
+        s = np.abs(s)
+
+        if s.ndim > 2:
+            s = s.mean(axis=2)
+
+        s = s.mean(axis=0)
+
+        return s
 
 
-def get_hits(X, y, estimator, scale, clr_transform):
+def get_hits(X, y, estimator, scale, clr_transform, per_class):
     """
     Return two NumPy arrays: One of real impact scores and the second of shadow impact scores
     """
@@ -160,41 +170,43 @@ def get_hits(X, y, estimator, scale, clr_transform):
 
     clf = estimator.fit(X_resamp, y[zero_samps])
 
-    S_r = shap_scores(clf, X_resamp)
+    S_r = shap_scores(clf, X_resamp, per_class)
 
-    S_p = S_r[n_features:]
-    S_r = S_r[0:n_features]
+    if per_class == True:
+
+        if S_r.ndim == 2:
+
+            S_p = S_r[:, n_features:]
+            S_r = S_r[:, 0:n_features]
+
+        else:
+
+            S_p = S_r[:, n_features:, :]
+            S_r = S_r[:, 0:n_features, :]
+
+    else:
+
+        S_p = S_r[n_features:]
+        S_r = S_r[0:n_features]
 
     return S_r, S_p
 
 
-def fs(X, y, estimator, C_ID, C, scale, clr_transform):
+def fs(X, y, estimator, C_ID, C, scale, clr_transform, per_class):
     """
     Randomly determine the impact of one feature from each cluster
     """
-
-    class_set = np.unique(y)
-    n_class = class_set.shape[0]
 
     # Select Random Feature from Each Cluster
     S = np.asarray([np.random.choice(C[k], size=1)[0] for k in C_ID])
 
     # Get Shapley impact scores
-    S_r, S_p = get_hits(X[:, S], y, estimator, scale, clr_transform)
+    S_r, S_p = get_hits(X[:, S], y, estimator, scale, clr_transform, per_class)
 
     return S_r, S_p
 
 
-def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, scale, clr_transform):
-
-    # Calculate how often features are selected by various algorithms
-    D = Parallel(n_jobs)(
-        delayed(fs)(X, y, clone(estimator), C_ID, C, scale, clr_transform)
-        for _ in range(75)
-    )
-
-    H_real = np.asarray([x[0] for x in D])
-    H_shadow = np.asarray([x[1] for x in D])
+def global_imps(H_real, H_shadow, alpha, alternative):
 
     # Calculate p-values associated with each feature using the Wilcoxon Test
     p_vals_raw = []
@@ -205,12 +217,79 @@ def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, scale, clr_transform):
 
         else:
             T_stat, p_val = wilcoxon(
-                H_real[:, column], H_shadow[:, column], alternative="greater"
+                H_real[:, column], H_shadow[:, column], alternative=alternative
             )
             p_vals_raw.append(p_val)
 
     # Correct for multiple comparisons
     H_fdr = multipletests(p_vals_raw, alpha, method="fdr_bh")[0]
+
+    return H_fdr
+
+
+def per_class_imps(H_real, H_shadow, alpha, y):
+    """
+    Determines if Shapley values differ significantly on a
+    per-class comparision. Unlike global scores, which make
+    take the absolute value of the Shapley scores, the
+    per-class function assumes that the distribution of scores
+    will differ between shadow features and real features within
+    a class.
+    """
+    H = []
+
+    classes_ = np.unique(y)
+
+    for i, class_name in enumerate(classes_):
+        loc = np.where(y == class_name, True, False)
+
+        #For more than two classes or Extra Trees/Random Forest
+        if H_real.ndim > 3: 
+            S_real = H_real[:, :, :, i][:, loc, :].mean(axis = 1)
+            S_shad = H_shadow[:, :, :, i][:, loc, :].mean(axis = 1)
+
+            # Calculate p-values associated with each feature using the Wilcoxon Test
+            H_class = global_imps(S_real, S_shad, alpha, alternative = "greater")
+
+        #Binary classes
+        else: 
+            S_real = H_real[:, loc, :].mean(axis = 1)
+            S_shad = H_shadow[:, loc, :].mean(axis = 1)
+
+            # Calculate p-values associated with each feature using the Wilcoxon Test
+            if class_name == 0:
+                H_class = global_imps(S_real, S_shad, alpha, alternative = "less")
+
+            else:
+                H_class = global_imps(S_real, S_shad, alpha, alternative = "greater")
+
+        H.append(H_class)
+
+    H = np.asarray(H)
+
+    H = np.sum(H, axis = 0)
+
+    H_fdr = np.where(H > 0, True, False)
+
+    return H_fdr
+
+
+def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, scale, clr_transform, per_class_imp):
+
+    # Calculate how often features are selected by various algorithms
+    D = Parallel(n_jobs)(
+        delayed(fs)(X, y, clone(estimator), C_ID, C, scale, clr_transform, per_class_imp)
+        for _ in range(75)
+    )
+
+    H_real = np.asarray([x[0] for x in D])
+    H_shadow = np.asarray([x[1] for x in D])
+
+    if per_class_imp:
+        H_fdr = per_class_imps(H_real, H_shadow, alpha, y)
+
+    else:
+        H_fdr = global_imps(H_real, H_shadow, alpha, alternative = "greater")
 
     return H_fdr
 
@@ -271,6 +350,7 @@ def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
 def select_features(
     estimator,
     stage_2_estimator,
+    per_class_imp,
     X,
     max_iter,
     y,
@@ -323,6 +403,7 @@ def select_features(
             cluster_id_to_feature_ids,
             scale,
             clr_transform,
+            per_class_imp
         )
 
         if ITERATION > 1:
@@ -450,6 +531,11 @@ class Triglav(TransformerMixin, BaseEstimator):
         The estimator used to calculate SAGE values. Only used if the
         'run_stage_2' is set to True.
 
+    per_class_imp: boot, default = False
+        Specifies if importance scores are calculated globally or per
+        class. Note, per class importance scores are calculated in a
+        one vs rest manner.
+
     n_iter: int, default = 40
         The number of iterations to run Triglav.
 
@@ -505,6 +591,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         self,
         estimator=ExtraTreesClassifier(512, bootstrap=True),
         stage_2_estimator=ExtraTreesClassifier(512),
+        per_class_imp: bool = False,
         n_iter: int = 40,
         p_1: float = 0.65,
         p_2: float = 0.30,
@@ -522,6 +609,7 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         self.estimator = estimator
         self.stage_2_estimator = stage_2_estimator
+        self.per_class_imp = per_class_imp
         self.n_iter = n_iter
         self.p_1 = p_1
         self.p_2 = p_2
@@ -565,6 +653,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         ) = select_features(
             estimator=self.estimator,
             stage_2_estimator=self.stage_2_estimator,
+            per_class_imp = self.per_class_imp,
             max_iter=self.n_iter,
             X=X_in,
             y=y_int_,
@@ -742,5 +831,8 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         if type(self.run_stage_2) is not bool:
             raise ValueError("The 'run_stage_2' parameter should be True or False.")
+
+        if type(self.per_class_imp) is not bool:
+            raise ValueError("The 'per_class_imp' parameter should be True or False.")
 
         return X_in, y_in
