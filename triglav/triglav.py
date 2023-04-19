@@ -189,7 +189,7 @@ def get_hits(X, y, estimator, scale, clr_transform, per_class):
         S_p = S_r[n_features:]
         S_r = S_r[0:n_features]
 
-    return S_r, S_p
+    return S_r, S_p, zero_samps
 
 
 def fs(X, y, estimator, C_ID, C, scale, clr_transform, per_class):
@@ -201,9 +201,9 @@ def fs(X, y, estimator, C_ID, C, scale, clr_transform, per_class):
     S = np.asarray([np.random.choice(C[k], size=1)[0] for k in C_ID])
 
     # Get Shapley impact scores
-    S_r, S_p = get_hits(X[:, S], y, estimator, scale, clr_transform, per_class)
+    S_r, S_p, zero_samps = get_hits(X[:, S], y, estimator, scale, clr_transform, per_class)
 
-    return S_r, S_p
+    return S_r, S_p, zero_samps
 
 
 def global_imps(H_real, H_shadow, alpha, alternative):
@@ -227,7 +227,7 @@ def global_imps(H_real, H_shadow, alpha, alternative):
     return H_fdr
 
 
-def per_class_imps(H_real, H_shadow, alpha, y):
+def per_class_imps(H_real, H_shadow, alpha, y, Z_loc):
     """
     Determines if Shapley values differ significantly on a
     per-class comparision. Unlike global scores, which make
@@ -236,38 +236,50 @@ def per_class_imps(H_real, H_shadow, alpha, y):
     will differ between shadow features and real features within
     a class.
     """
+
     H = []
 
     classes_ = np.unique(y)
 
     for i, class_name in enumerate(classes_):
-        loc = np.where(y == class_name, True, False)
+        locs = [np.where(y[zs] == class_name, True, False) for zs in Z_loc]
 
         #For more than two classes or Extra Trees/Random Forest
-        if H_real.ndim > 3: 
-            S_real = H_real[:, :, :, i][:, loc, :].mean(axis = 1)
-            S_shad = H_shadow[:, :, :, i][:, loc, :].mean(axis = 1)
+        if np.asarray([H_real[0]]).ndim > 3:
+            
+            #Get the class being examined
+            H_real_i = [row[:, :, i] for row in H_real]
+            H_shadow_i = [row[:, :, i] for row in H_shadow]
+
+            #Get the rows being examined
+            H_real_i = np.asarray([row[locs[j]] for j, row in enumerate(H_real_i)])
+            H_shadow_i = np.asarray([row[locs[j]] for j, row in enumerate(H_shadow_i)])
 
             # Calculate p-values associated with each feature using the Wilcoxon Test
-            H_class = global_imps(S_real, S_shad, alpha, alternative = "greater")
+            H_class = global_imps(H_real_i.mean(axis = 1), 
+                                  H_shadow_i.mean(axis = 1), 
+                                  alpha, 
+                                  alternative = "greater")
 
         #Binary classes
         else: 
-            S_real = H_real[:, loc, :].mean(axis = 1)
-            S_shad = H_shadow[:, loc, :].mean(axis = 1)
 
             # Calculate p-values associated with each feature using the Wilcoxon Test
             if class_name == 0:
-                H_class = global_imps(S_real, S_shad, alpha, alternative = "less")
+                H_class = global_imps(H_real[:, loc, :].mean(axis = 1), 
+                                      H_shadow[:, loc, :].mean(axis = 1), 
+                                      alpha, 
+                                      alternative = "less")
 
             else:
-                H_class = global_imps(S_real, S_shad, alpha, alternative = "greater")
+                H_class = global_imps(H_real[:, loc, :].mean(axis = 1), 
+                                      H_shadow[:, loc, :].mean(axis = 1), 
+                                      alpha, 
+                                      alternative = "greater")
 
         H.append(H_class)
 
-    H = np.asarray(H)
-
-    H = np.sum(H, axis = 0)
+    H = np.sum(np.asarray(H), axis = 0)
 
     H_fdr = np.where(H > 0, True, False)
 
@@ -281,15 +293,16 @@ def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, scale, clr_transform, per_c
         delayed(fs)(X, y, clone(estimator), C_ID, C, scale, clr_transform, per_class_imp)
         for _ in range(75)
     )
-
-    H_real = np.asarray([x[0] for x in D])
-    H_shadow = np.asarray([x[1] for x in D])
+   
+    H_real = [x[0] for x in D]
+    H_shadow = [x[1] for x in D]
+    Z_loc = [x[2] for x in D]
 
     if per_class_imp:
-        H_fdr = per_class_imps(H_real, H_shadow, alpha, y)
+        H_fdr = per_class_imps(H_real, H_shadow, alpha, y, Z_loc)
 
     else:
-        H_fdr = global_imps(H_real, H_shadow, alpha, alternative = "greater")
+        H_fdr = global_imps(np.asarray(H_real), np.asarray(H_shadow), alpha, alternative = "greater")
 
     return H_fdr
 
@@ -531,7 +544,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         The estimator used to calculate SAGE values. Only used if the
         'run_stage_2' is set to True.
 
-    per_class_imp: boot, default = False
+    per_class_imp: bool, default = False
         Specifies if importance scores are calculated globally or per
         class. Note, per class importance scores are calculated in a
         one vs rest manner.
