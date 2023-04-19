@@ -30,7 +30,7 @@
 
 ### Install
 Once downloaded, go to the location of the download and type:
-    pip install triglav-v0.0.1b.tar.gz
+    pip install triglav-va.b.cx.tar.gz
     
 ### Class Parameters
 
