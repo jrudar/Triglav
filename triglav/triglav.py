@@ -246,18 +246,18 @@ def per_class_imps(H_real, H_shadow, alpha, y, Z_loc):
 
         #For more than two classes or Extra Trees/Random Forest
         if np.asarray([H_real[0]]).ndim > 3:
-            
+
             #Get the class being examined
             H_real_i = [row[:, :, i] for row in H_real]
             H_shadow_i = [row[:, :, i] for row in H_shadow]
 
             #Get the rows being examined
-            H_real_i = np.asarray([row[locs[j]] for j, row in enumerate(H_real_i)])
-            H_shadow_i = np.asarray([row[locs[j]] for j, row in enumerate(H_shadow_i)])
+            H_real_i = np.asarray([row[locs[j]].mean(axis = 0) for j, row in enumerate(H_real_i)])
+            H_shadow_i = np.asarray([row[locs[j]].mean(axis = 0) for j, row in enumerate(H_shadow_i)])
 
             # Calculate p-values associated with each feature using the Wilcoxon Test
-            H_class = global_imps(H_real_i.mean(axis = 1), 
-                                  H_shadow_i.mean(axis = 1), 
+            H_class = global_imps(H_real_i, 
+                                  H_shadow_i, 
                                   alpha, 
                                   alternative = "greater")
 
