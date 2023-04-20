@@ -33,6 +33,7 @@ Once downloaded, go to the location of the download and type:
     pip install triglav-va.b.cx.tar.gz
     
 ### Class Parameters
+
     transformer: default = NoScale()
         The transformer to be used to scale features. One can use
 	the scikit-learn.preprocessing transformers. In addition,
