@@ -185,7 +185,7 @@ Once downloaded, go to the location of the download and type:
     	    plt.close()
 
 	    #Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.895 / Transformed Data - Mean Score = 0.915)
-    	    clf = make_pipeline(StandardScaler(), ExtraTreesClassifier(128, random_state = 0))
+	    clf = make_pipeline(StandardScaler(), ExtraTreesClassifier(128, random_state = 0))
 	    
 	    scores = cross_val_score(clf, X, y, cv = 10)
 	    print(np.mean(scores))
