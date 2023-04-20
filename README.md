@@ -35,7 +35,7 @@ Once downloaded, go to the location of the download and type:
 ### Class Parameters
 
     transformer: default = NoScale()
-        The transformer to be used to scale features. One can use
+    	The transformer to be used to scale features. One can use
 	the scikit-learn.preprocessing transformers. In addition,
 	CLR and Scaler (converts each row into frequencies) are
 	available by importing 'CLRTransformer' and 'Scaler' from the
