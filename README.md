@@ -33,7 +33,13 @@ Once downloaded, go to the location of the download and type:
     pip install triglav-va.b.cx.tar.gz
     
 ### Class Parameters
-
+    transformer: default = NoScale()
+        The transformer to be used to scale features. One can use
+	the scikit-learn.preprocessing transformers. In addition,
+	CLR and Scaler (converts each row into frequencies) are
+	available by importing 'CLRTransformer' and 'Scaler' from the
+	'triglav' package.
+	
     estimator: default = ExtraTreesClassifier(512, bootstrap = True)
         The estimator used to calculate Shapley scores.
 
@@ -59,7 +65,8 @@ Once downloaded, go to the location of the download and type:
 
     metric: str, default = "correlation"
         The dissimilarity measure used to calculate distances between
-        features.
+        features. To use Extremely Randomized Trees proximities one
+	has to import 'ETCProx' from the 'triglav' package.
 
     linkage: str, default = "complete"
         The type of hierarchical clustering method to apply. The available
@@ -75,12 +82,6 @@ Once downloaded, go to the location of the download and type:
 
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
-
-    scale: bool, default = True
-        Scales the data so the sum of each row is equal to one.
-
-    clr_transform: bool, default = True
-        Applies the centered log ratio to the dataset.
 
     run_stage_2: bool, default = True
         This stage will determine the best feature from each of the
@@ -122,11 +123,15 @@ Once downloaded, go to the location of the download and type:
 	from sklearn.datasets import make_classification
 	from sklearn.preprocessing import StandardScaler
 	from sklearn.model_selection import train_test_split, cross_val_score
-	from sklearn.ensemble import ExtraTreesClassifier
+	from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier
+	from sklearn.pipeline import make_pipeline
 
 	import seaborn as sns
+	
 	import matplotlib.pyplot as plt
+	
 	import pandas as pd
+	
 	import numpy as np
 
 	if __name__ == "__main__":
@@ -153,13 +158,19 @@ Once downloaded, go to the location of the download and type:
 	    X_test = s_trf.transform(X_test)
 
 	    #Set up Triglav
-	    model = Triglav(n_jobs = 4, scale = False, clr_transform=False)
+	    model = Triglav(estimator = HistGradientBoostingClassifier(min_samples_leaf = 15),
+			    per_class_imp = True, 
+			    n_jobs = 5, 
+			    metric = "euclidean",
+			    linkage = "ward", 
+			    criterion="maxclust",
+			    transformer=StandardScaler())
 
 	    #Visualize clustering (Figure 1 Below)
 	    model.visualize_hclust(X_train, y_train)
 	    
 	    #Reset the threshold based on inspection of the dendrogram
-	    model.thresh = 1.25
+	    model.thresh = 9
 
 	    #Identify predictive features
 	    model.fit(X_train, y_train)
@@ -169,18 +180,16 @@ Once downloaded, go to the location of the download and type:
 	    
 	    #Visualize feature importance results using SAGE (Figure 2 below)
 	    model.sage_values_.plot_sign(feature_names = np.asarray([i for i in range(20)])[model.selected_])
+	    plt.show()
+    	    plt.close()
 
-	    #Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.910 / Transformed Data - Mean Score = 0.910)
-	    scores = cross_val_score(ExtraTreesClassifier(128, random_state = 0), 
-	    			     X = np.vstack((X_train, X_test)), 
-				     y = np.hstack((y_train, y_test)), 
-				     cv = 10)
-	    print(np.mean(scores))
+	    #Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.895 / Transformed Data - Mean Score = 0.915)
+    	    clf = make_pipeline(StandardScaler(), ExtraTreesClassifier(128, random_state = 0))
 	    
-	    scores = cross_val_score(ExtraTreesClassifier(128, random_state = 0), 
-	    			     X = np.vstack((model.transform(X_train), X_test_trf)), 
-				     y = np.hstack((y_train, y_test)), 
-				     cv = 10)
+	    scores = cross_val_score(clf, X, y, cv = 10)
+	    print(np.mean(scores))
+
+	    scores = cross_val_score(clf, model.transform(X), y, cv = 10)
 	    print(np.mean(scores))	    
     
 Figure 1: Clustering of Features. Colors are added by the SciPy Dendrogram function.
