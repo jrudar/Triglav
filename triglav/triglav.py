@@ -11,10 +11,15 @@ from numpy.random import PCG64
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.utils import check_X_y, resample
 from sklearn.base import TransformerMixin, BaseEstimator, clone
-from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    HistGradientBoostingClassifier,
+    RandomForestClassifier,
+)
 from sklearn.utils.validation import check_is_fitted
 from sklearn.metrics import pairwise_distances
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 from statsmodels.stats.multitest import multipletests
 
@@ -35,11 +40,100 @@ from collections import defaultdict
 
 from matplotlib import pyplot as plt
 
+##################################################################################
+# Utility Classes
+##################################################################################
+class NoScale(TransformerMixin, BaseEstimator):
+    """
+    No transformation transformer.
+    """
+
+    def __init__(self):
+        pass
+
+    def fit_transform(self, X):
+        return X
+
+
+class Scaler(TransformerMixin, BaseEstimator):
+    """
+    Scales each row so that the sum of each row is equal to one.
+    """
+
+    def __init__(self):
+        pass
+
+    def fit_transform(self, X):
+
+        self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
+
+        return closure(X[self.zero_samps])
+
+
+class CLRTransformer(TransformerMixin, BaseEstimator):
+    """
+    Transforms data using the Centered-Log Ratio transformation.
+    """
+
+    def __init__(self):
+        pass
+
+    def fit_transform(self, X):
+
+        self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
+
+        return clr(multiplicative_replacement(closure(X[self.zero_samps])))
+
+
+class ETCProx:
+    def __init__(self, n_estimators=1024, min_samples_split=0.33):
+
+        self.n_estimators = n_estimators
+        self.min_samples_split = min_samples_split
+
+    def transform(self, X):
+
+        # Randomize class labels (https://inria.hal.science/hal-01667317/file/unsupervised-extremely-randomized_Dalleau_Couceiro_Smail-Tabbone.pdf)
+        y_rnd = [0 for _ in range(0, X.shape[0] // 2)]
+        y_rnd.extend([1 for _ in range(X.shape[0] // 2, X.shape[0])])
+        y_rnd = np.asarray(y_rnd)
+
+        y_f = np.hstack(
+            (
+                np.random.choice(y_rnd, size=X.shape[0], replace=False),
+                np.random.choice(y_rnd, size=X.shape[0], replace=False),
+                np.random.choice(y_rnd, size=X.shape[0], replace=False),
+                np.random.choice(y_rnd, size=X.shape[0], replace=False),
+                np.random.choice(y_rnd, size=X.shape[0], replace=False),
+            )
+        )
+
+        X_stacked = np.vstack((X, X, X, X, X))
+
+        clf = ExtraTreesClassifier(
+            self.n_estimators,
+            min_samples_split=int(X_stacked.shape[0] * self.min_samples_split),
+            max_features=1,
+        ).fit(X_stacked, y_f)
+
+        L = clf.apply(X)
+        L = OneHotEncoder(sparse=False).fit_transform(L)
+        S = np.dot(L, L.T)
+        S = S / 1024
+        S = 1 - S
+        S = np.sqrt(S)
+
+        return S
+
 
 ##################################################################################
 # Utility Functions
 ##################################################################################
 def beta_binom_test(X, C, alpha, p, p2):
+    """
+    Beta-binomial test for features. Successes and failures are modelled
+    by seperate beta-binomial distributions.
+    """
 
     THRESHOLD = alpha / C  # For FWER correction
 
@@ -81,27 +175,36 @@ def beta_binom_test(X, C, alpha, p, p2):
     return P_hit, P_rej
 
 
-def scale_features(X, scale, clr_transform):
-
-    zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
-
-    if scale == True and clr_transform == True:
-
-        X_final = clr(multiplicative_replacement(closure(X[zero_samps])))
-
-        return X_final, zero_samps
-
-    elif scale == True and clr_transform == False:
-        X_final = closure(X[zero_samps])
-
-        return X_final, zero_samps
-
-    return X[zero_samps], zero_samps
-
-
-def get_shadow(X, scale, clr_transform):
+def scale_features(X, transformer):
     """
-    Creates permuted fatures and appends these features to
+    Function for scaling features. The transformer must be a Scikit-Learn
+    compatible transformer.
+    """
+
+    if type(transformer) == NoScale:
+
+        zero_samps = np.ones(shape=(X.shape[0],), dtype=bool)
+
+        X_transformed = transformer.fit_transform(X)
+
+    elif type(transformer) == CLRTransformer or type(transformer) == Scaler:
+
+        X_transformed = transformer.fit_transform(X)
+
+        zero_samps = transformer.zero_samps
+
+    else:
+
+        zero_samps = np.ones(shape=(X.shape[0],), dtype=bool)
+
+        X_transformed = transformer.fit_transform(X)
+
+    return X_transformed, zero_samps
+
+
+def get_shadow(X, transformer):
+    """
+    Creates permuted features and appends these features to
     the original dataframe. Features are then scaled.
     """
 
@@ -115,7 +218,7 @@ def get_shadow(X, scale, clr_transform):
     X_final = np.hstack((X, X_perm.transpose()))
 
     # Scale
-    X_final, zero_samps = scale_features(X_final, scale, clr_transform)
+    X_final, zero_samps = scale_features(X_final, transformer)
 
     return X_final, zero_samps
 
@@ -125,7 +228,11 @@ def shap_scores(M, X, per_class):
     Get Shapley Scores
     """
 
-    tree_supported = {ExtraTreesClassifier, HistGradientBoostingClassifier, RandomForestClassifier}
+    tree_supported = {
+        ExtraTreesClassifier,
+        HistGradientBoostingClassifier,
+        RandomForestClassifier,
+    }
 
     if type(M) in tree_supported:
         explainer = sh.Explainer(M)
@@ -153,10 +260,12 @@ def shap_scores(M, X, per_class):
         return s
 
 
-def get_hits(X, y, estimator, scale, clr_transform, per_class):
+def get_hits(X, y, estimator, transformer, per_class):
     """
     Return two NumPy arrays: One of real impact scores and the second of shadow impact scores
     """
+
+    hp_opts = {GridSearchCV, RandomizedSearchCV}
 
     if X.ndim > 1:
         X_tmp = np.copy(X, "C")
@@ -164,11 +273,15 @@ def get_hits(X, y, estimator, scale, clr_transform, per_class):
     else:
         X_tmp = X.reshape(-1, 1)
 
-    X_resamp, zero_samps = get_shadow(X_tmp, scale, clr_transform)
+    X_resamp, zero_samps = get_shadow(X_tmp, transformer)
 
     n_features = X.shape[1]
 
     clf = estimator.fit(X_resamp, y[zero_samps])
+
+    # Get the best estimator if a grid search was used
+    if type(clf) in hp_opts:
+        clf = clf.best_estimator_
 
     S_r = shap_scores(clf, X_resamp, per_class)
 
@@ -192,7 +305,7 @@ def get_hits(X, y, estimator, scale, clr_transform, per_class):
     return S_r, S_p, zero_samps
 
 
-def fs(X, y, estimator, C_ID, C, scale, clr_transform, per_class):
+def fs(X, y, estimator, C_ID, C, transformer, per_class):
     """
     Randomly determine the impact of one feature from each cluster
     """
@@ -201,12 +314,15 @@ def fs(X, y, estimator, C_ID, C, scale, clr_transform, per_class):
     S = np.asarray([np.random.choice(C[k], size=1)[0] for k in C_ID])
 
     # Get Shapley impact scores
-    S_r, S_p, zero_samps = get_hits(X[:, S], y, estimator, scale, clr_transform, per_class)
+    S_r, S_p, zero_samps = get_hits(X[:, S], y, estimator, transformer, per_class)
 
     return S_r, S_p, zero_samps
 
 
 def global_imps(H_real, H_shadow, alpha, alternative):
+    """
+    Used to calculate if real and shadow features differ significantly.
+    """
 
     # Calculate p-values associated with each feature using the Wilcoxon Test
     p_vals_raw = []
@@ -230,11 +346,7 @@ def global_imps(H_real, H_shadow, alpha, alternative):
 def per_class_imps(H_real, H_shadow, alpha, y, Z_loc):
     """
     Determines if Shapley values differ significantly on a
-    per-class comparision. Unlike global scores, which make
-    take the absolute value of the Shapley scores, the
-    per-class function assumes that the distribution of scores
-    will differ between shadow features and real features within
-    a class.
+    per-class (one vs rest) level.
     """
 
     H = []
@@ -244,56 +356,71 @@ def per_class_imps(H_real, H_shadow, alpha, y, Z_loc):
     for i, class_name in enumerate(classes_):
         locs = [np.where(y[zs] == class_name, True, False) for zs in Z_loc]
 
-        #For more than two classes or Extra Trees/Random Forest
+        # For more than two classes or Extra Trees/Random Forest
         if np.asarray([H_real[0]]).ndim > 3:
 
-            #Get the class being examined
+            # Get the class being examined
             H_real_i = [row[:, :, i] for row in H_real]
             H_shadow_i = [row[:, :, i] for row in H_shadow]
 
-            #Get the rows being examined
-            H_real_i = np.asarray([row[locs[j]].mean(axis = 0) for j, row in enumerate(H_real_i)])
-            H_shadow_i = np.asarray([row[locs[j]].mean(axis = 0) for j, row in enumerate(H_shadow_i)])
+            # Get the rows being examined
+            H_real_i = np.asarray(
+                [row[locs[j]].mean(axis=0) for j, row in enumerate(H_real_i)]
+            )
+            H_shadow_i = np.asarray(
+                [row[locs[j]].mean(axis=0) for j, row in enumerate(H_shadow_i)]
+            )
 
             # Calculate p-values associated with each feature using the Wilcoxon Test
-            H_class = global_imps(H_real_i, 
-                                  H_shadow_i, 
-                                  alpha, 
-                                  alternative = "greater")
+            H_class = global_imps(H_real_i, H_shadow_i, alpha, alternative="greater")
 
-        #Binary classes
-        else: 
+        # Binary classes
+        else:
+            H_real_i = np.asarray(
+                [row[locs[j]].mean(axis=0) for j, row in enumerate(H_real)]
+            )
+            H_shadow_i = np.asarray(
+                [row[locs[j]].mean(axis=0) for j, row in enumerate(H_shadow)]
+            )
 
             # Calculate p-values associated with each feature using the Wilcoxon Test
             if class_name == 0:
-                H_class = global_imps(H_real[:, loc, :].mean(axis = 1), 
-                                      H_shadow[:, loc, :].mean(axis = 1), 
-                                      alpha, 
-                                      alternative = "less")
+                H_class = global_imps(
+                    H_real_i,
+                    H_shadow_i,
+                    alpha,
+                    alternative="less",
+                )
 
             else:
-                H_class = global_imps(H_real[:, loc, :].mean(axis = 1), 
-                                      H_shadow[:, loc, :].mean(axis = 1), 
-                                      alpha, 
-                                      alternative = "greater")
+                H_class = global_imps(
+                    H_real_i,
+                    H_shadow_i,
+                    alpha,
+                    alternative="greater",
+                )
 
         H.append(H_class)
 
-    H = np.sum(np.asarray(H), axis = 0)
+    H = np.sum(np.asarray(H), axis=0)
 
     H_fdr = np.where(H > 0, True, False)
 
     return H_fdr
 
 
-def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, scale, clr_transform, per_class_imp):
+def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, transformer, per_class_imp):
+    """
+    Trains each model and calculates Shapley values in parallel. Determines the
+    significance of a feature.
+    """
 
     # Calculate how often features are selected by various algorithms
     D = Parallel(n_jobs)(
-        delayed(fs)(X, y, clone(estimator), C_ID, C, scale, clr_transform, per_class_imp)
+        delayed(fs)(X, y, clone(estimator), C_ID, C, transformer, per_class_imp)
         for _ in range(75)
     )
-   
+
     H_real = [x[0] for x in D]
     H_shadow = [x[1] for x in D]
     Z_loc = [x[2] for x in D]
@@ -302,7 +429,9 @@ def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, scale, clr_transform, per_c
         H_fdr = per_class_imps(H_real, H_shadow, alpha, y, Z_loc)
 
     else:
-        H_fdr = global_imps(np.asarray(H_real), np.asarray(H_shadow), alpha, alternative = "greater")
+        H_fdr = global_imps(
+            np.asarray(H_real), np.asarray(H_shadow), alpha, alternative="greater"
+        )
 
     return H_fdr
 
@@ -325,12 +454,19 @@ def update_lists(A, T, R, C_INDS, PH, PR):
     return A_new, T_new, R_new, np.asarray(T_idx)
 
 
-def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
+def get_clusters(X, linkage_method, T, criterion, transformer, metric):
+    """
+    Creates the flat clusters to be used by the rest of the algorithm.
+    """
 
     # Cluster Features
-    X_final, _ = scale_features(X, scale, clr_transform)
+    X_final, _ = scale_features(X, transformer)
 
-    D = pairwise_distances(X_final.T, metric=metric)
+    if type(metric) == ETCProx:
+        D = metric.transform(X_final.T)
+
+    else:
+        D = pairwise_distances(X_final.T, metric=metric)
 
     if linkage_method == "complete":
         D = hierarchy.complete(D)
@@ -361,6 +497,7 @@ def get_clusters(X, linkage_method, T, criterion, scale, clr_transform, metric):
 
 
 def select_features(
+    transformer,
     estimator,
     stage_2_estimator,
     per_class_imp,
@@ -376,10 +513,11 @@ def select_features(
     criterion,
     verbose,
     n_jobs,
-    scale,
-    clr_transform,
     run_stage_2,
 ):
+    """
+    Function to run each iteration of the feature selection process.
+    """
 
     # Remove zero-variance features
     nZVF = VarianceThreshold().fit(X)
@@ -387,7 +525,7 @@ def select_features(
 
     # Get clusters
     selected_clusters_, cluster_id_to_feature_ids, D = get_clusters(
-        X_red, linkage, thresh, criterion, scale, clr_transform, metric
+        X_red, linkage, thresh, criterion, clone(transformer), metric
     )
 
     # Prepare tracking dictionaries
@@ -414,9 +552,8 @@ def select_features(
             n_jobs,
             T_idx,
             cluster_id_to_feature_ids,
-            scale,
-            clr_transform,
-            per_class_imp
+            clone(transformer),
+            per_class_imp,
         )
 
         if ITERATION > 1:
@@ -481,7 +618,7 @@ def select_features(
 
         y_enc = LabelEncoder().fit_transform(y)
 
-        X_red, zero_samps = scale_features(X_red, scale, clr_transform)
+        X_red, zero_samps = scale_features(X_red, transformer)
 
         S_tmp = nZVF.transform([S_1])[0]
 
@@ -537,6 +674,9 @@ class Triglav(TransformerMixin, BaseEstimator):
 
     Inputs:
 
+    transformer: default = NoScale()
+        The transformer to be used to scale features.
+
     estimator: default = ExtraTreesClassifier(512, bootstrap = True)
         The estimator used to calculate Shapley scores.
 
@@ -579,12 +719,6 @@ class Triglav(TransformerMixin, BaseEstimator):
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
 
-    scale: bool, default = True
-        Scales the data so the sum of each row is equal to one.
-
-    clr_transform: bool, default = True
-        Applies the centered log ratio to the dataset.
-
     run_stage_2: bool, default = True
         This stage will determine the best feature from each of the
         selected clusters by calculating SAGE values.
@@ -602,24 +736,24 @@ class Triglav(TransformerMixin, BaseEstimator):
 
     def __init__(
         self,
+        transformer=NoScale(),
         estimator=ExtraTreesClassifier(512, bootstrap=True),
         stage_2_estimator=ExtraTreesClassifier(512),
         per_class_imp: bool = False,
         n_iter: int = 40,
         p_1: float = 0.65,
         p_2: float = 0.30,
-        metric: str = "correlation",
+        metric: Union[str, ETCProx] = "correlation",
         linkage: str = "complete",
         thresh: Union[int, float] = 2.0,
         criterion: str = "distance",
         alpha: float = 0.05,
-        scale: bool = True,
-        clr_transform: bool = False,
         run_stage_2: bool = True,
         verbose: int = 0,
         n_jobs: int = 10,
     ):
 
+        self.transformer = transformer
         self.estimator = estimator
         self.stage_2_estimator = stage_2_estimator
         self.per_class_imp = per_class_imp
@@ -631,8 +765,6 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.thresh = thresh
         self.criterion = criterion
         self.alpha = alpha
-        self.scale = scale
-        self.clr_transform = clr_transform
         self.run_stage_2 = run_stage_2
         self.verbose = verbose
         self.n_jobs = n_jobs
@@ -664,9 +796,10 @@ class Triglav(TransformerMixin, BaseEstimator):
             self.sage_values_,
             self.linkage_matrix_,
         ) = select_features(
+            transformer=self.transformer,
             estimator=self.estimator,
             stage_2_estimator=self.stage_2_estimator,
-            per_class_imp = self.per_class_imp,
+            per_class_imp=self.per_class_imp,
             max_iter=self.n_iter,
             X=X_in,
             y=y_int_,
@@ -678,8 +811,6 @@ class Triglav(TransformerMixin, BaseEstimator):
             thresh=self.thresh,
             criterion=self.criterion,
             verbose=self.verbose,
-            scale=self.scale,
-            clr_transform=self.clr_transform,
             run_stage_2=self.run_stage_2,
             n_jobs=self.n_jobs,
         )
@@ -748,8 +879,7 @@ class Triglav(TransformerMixin, BaseEstimator):
             self.linkage,
             self.thresh,
             self.criterion,
-            self.scale,
-            self.clr_transform,
+            self.transformer,
             self.metric,
         )
 
@@ -823,9 +953,13 @@ class Triglav(TransformerMixin, BaseEstimator):
             raise ValueError("The 'thresh' parameter should be greater than one.")
 
         if self.metric not in metrics:
-            raise ValueError(
-                "The 'metric' parameter should be one supported by Scikit-Learn."
-            )
+            if type(self.metric) == ETCProx:
+                pass
+
+            else:
+                raise ValueError(
+                    "The 'metric' parameter should be one supported by Scikit-Learn or 'ETCProx'."
+                )
 
         if self.criterion not in crit_set:
             raise ValueError(
@@ -835,11 +969,6 @@ class Triglav(TransformerMixin, BaseEstimator):
         if self.linkage not in link_set:
             raise ValueError(
                 "The 'linkage' parameter should one supported in 'scipy.hierarchy'."
-            )
-
-        if type(self.scale) is not bool or type(self.clr_transform) is not bool:
-            raise ValueError(
-                "The 'scale' and/or 'clr_transform' parameter(s) should be True or False."
             )
 
         if type(self.run_stage_2) is not bool:
