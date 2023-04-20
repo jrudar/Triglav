@@ -182,7 +182,7 @@ Once downloaded, go to the location of the download and type:
 	    #Visualize feature importance results using SAGE (Figure 2 below)
 	    model.sage_values_.plot_sign(feature_names = np.asarray([i for i in range(20)])[model.selected_])
 	    plt.show()
-    	    plt.close()
+	    plt.close()
 
 	    #Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.895 / Transformed Data - Mean Score = 0.915)
 	    clf = make_pipeline(StandardScaler(), ExtraTreesClassifier(128, random_state = 0))
