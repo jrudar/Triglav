@@ -1,44 +1,36 @@
 from __future__ import annotations
 
 import warnings
-from sklearn.exceptions import ConvergenceWarning
+from collections import defaultdict
+from typing import Union, Tuple, Mapping, List, Type, Set
 
-warnings.filterwarnings("ignore", category=ConvergenceWarning, module="sklearn")
-
+import matplotlib.axes
 import numpy as np
+import sage as sg
+import shap as sh
+from joblib import Parallel, delayed
+from matplotlib import pyplot as plt
 from numpy.random import PCG64
-
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.utils import check_X_y, resample
-from sklearn.base import TransformerMixin, BaseEstimator, clone
+from scipy.cluster import hierarchy
+from scipy.stats import wilcoxon, betabinom
+from skbio.stats.composition import multiplicative_replacement, closure, clr
+from sklearn.base import TransformerMixin, BaseEstimator, clone, ClassifierMixin
 from sklearn.ensemble import (
     ExtraTreesClassifier,
     HistGradientBoostingClassifier,
-    RandomForestClassifier,
-)
-from sklearn.utils.validation import check_is_fitted
+    RandomForestClassifier, )
+from sklearn.ensemble._forest import BaseForest
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.metrics import pairwise_distances
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.utils import check_X_y, resample
+from sklearn.utils.validation import check_is_fitted
 from statsmodels.stats.multitest import multipletests
 
-import shap as sh
+warnings.filterwarnings("ignore", category=ConvergenceWarning, module="sklearn")
 
-import sage as sg
-
-from joblib import Parallel, delayed
-
-from scipy.stats import wilcoxon, betabinom
-from scipy.cluster import hierarchy
-
-from skbio.stats.composition import multiplicative_replacement, closure, clr
-
-from typing import Union
-
-from collections import defaultdict
-
-from matplotlib import pyplot as plt
 
 ##################################################################################
 # Utility Classes
@@ -51,7 +43,7 @@ class NoScale(TransformerMixin, BaseEstimator):
     def __init__(self):
         pass
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y=None, **fit_params):
         return X
 
 
@@ -63,8 +55,7 @@ class Scaler(TransformerMixin, BaseEstimator):
     def __init__(self):
         pass
 
-    def fit_transform(self, X):
-
+    def fit_transform(self, X, y=None, **fit_params):
         self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
 
         return closure(X[self.zero_samps])
@@ -78,8 +69,7 @@ class CLRTransformer(TransformerMixin, BaseEstimator):
     def __init__(self):
         pass
 
-    def fit_transform(self, X):
-
+    def fit_transform(self, X, y=None, **fit_params):
         self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
 
         return clr(multiplicative_replacement(closure(X[self.zero_samps])))
@@ -87,14 +77,25 @@ class CLRTransformer(TransformerMixin, BaseEstimator):
 
 class ETCProx:
     def __init__(self, n_estimators=1024, min_samples_split=0.33):
-
         self.n_estimators = n_estimators
         self.min_samples_split = min_samples_split
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """
+        Transform data using the ETCProx method.
 
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix of shape (n_samples, n_features).
+
+        Returns
+        -------
+        np.ndarray
+            Proximity matrix of shape (n_samples, n_samples).
+        """
         # Randomize class labels (https://inria.hal.science/hal-01667317/file/unsupervised-extremely-randomized_Dalleau_Couceiro_Smail-Tabbone.pdf)
-        y_rnd = [0 for _ in range(0, X.shape[0] // 2)]
+        y_rnd = [0 for _ in range(X.shape[0] // 2)]
         y_rnd.extend([1 for _ in range(X.shape[0] // 2, X.shape[0])])
         y_rnd = np.asarray(y_rnd)
 
@@ -121,18 +122,40 @@ class ETCProx:
         S = np.dot(L, L.T)
         S = S / 1024
         S = 1 - S
-        S = np.sqrt(S)
-
-        return S
+        return np.sqrt(S)
 
 
 ##################################################################################
 # Utility Functions
 ##################################################################################
-def beta_binom_test(X, C, alpha, p, p2):
+def beta_binom_test(
+        X: np.ndarray,
+        C: int = 1,
+        alpha: float = 0.05,
+        p: float = 0.5,
+        p2: float = 0.5,
+) -> Tuple[List[bool], List[bool]]:
     """
     Beta-binomial test for features. Successes and failures are modelled
-    by seperate beta-binomial distributions.
+    by separate beta-binomial distributions.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix of shape (n_samples, n_features).
+    C : int, optional
+        Number of classes, by default 1
+    alpha : float, optional
+        Significance level, by default 0.05
+    p : float, optional
+        Prior probability of a hit, by default 0.5
+    p2 : float, optional
+        Prior probability of a rejection, by default 0.5
+
+    Returns
+    -------
+    P_hit : List[bool]
+    P_rej : List[bool]
     """
 
     THRESHOLD = alpha / C  # For FWER correction
@@ -150,7 +173,6 @@ def beta_binom_test(X, C, alpha, p, p2):
     P_hit = []
     P_rej = []
     for column in range(X.shape[1]):
-
         pval_hit = betabinom.sf(X[:, column].sum() - 1, n, a_0_h, b_0_h, loc=0)
         P_hit.append(pval_hit)
 
@@ -175,37 +197,63 @@ def beta_binom_test(X, C, alpha, p, p2):
     return P_hit, P_rej
 
 
-def scale_features(X, transformer):
+def scale_features(
+        X: np.ndarray,
+        transformer: Type[TransformerMixin, BaseEstimator]
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Function for scaling features. The transformer must be a Scikit-Learn
     compatible transformer.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The features to be scaled.
+    transformer : Type[TransformerMixin, BaseEstimator]
+        The transformer to be used for scaling.
+
+    Returns
+    -------
+    X_transformed : np.ndarray
+        The scaled features.
+    zero_samps : np.ndarray
+        The samples that were zeroed out during scaling.
     """
 
-    if type(transformer) == NoScale:
-
+    if type(transformer) == NoScale or type(transformer) not in [
+        CLRTransformer,
+        Scaler,
+    ]:
         zero_samps = np.ones(shape=(X.shape[0],), dtype=bool)
-
-        X_transformed = transformer.fit_transform(X)
-
-    elif type(transformer) == CLRTransformer or type(transformer) == Scaler:
-
-        X_transformed = transformer.fit_transform(X)
-
-        zero_samps = transformer.zero_samps
-
+        X_transformed = transformer.fit_transform(X, )
     else:
-
-        zero_samps = np.ones(shape=(X.shape[0],), dtype=bool)
-
-        X_transformed = transformer.fit_transform(X)
+        X_transformed = transformer.fit_transform(X, )
+        zero_samps = transformer.zero_samps
 
     return X_transformed, zero_samps
 
 
-def get_shadow(X, transformer):
+def get_shadow(
+        X: np.ndarray,
+        transformer: Type[TransformerMixin, BaseEstimator],
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Creates permuted features and appends these features to
     the original dataframe. Features are then scaled.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The features to be permuted.
+    transformer : Type[TransformerMixin, BaseEstimator]
+        The transformer to be used for scaling.
+
+    Returns
+    -------
+    X_final : np.ndarray
+        The permuted and scaled features.
+    zero_samps : np.ndarray
+        The samples that were zeroed out during scaling.
     """
 
     # Create a NumPy array the same size of X
@@ -223,7 +271,11 @@ def get_shadow(X, transformer):
     return X_final, zero_samps
 
 
-def shap_scores(M, X, per_class):
+def shap_scores(
+        M: Type[ClassifierMixin],
+        X: np.ndarray,
+        per_class: bool
+) -> np.ndarray:
     """
     Get Shapley Scores
     """
@@ -244,12 +296,7 @@ def shap_scores(M, X, per_class):
 
         s = explainer(X).values
 
-    if per_class == True:
-
-        return s
-
-    else:
-
+    if not per_class:
         s = np.abs(s)
 
         if s.ndim > 2:
@@ -257,22 +304,42 @@ def shap_scores(M, X, per_class):
 
         s = s.mean(axis=0)
 
-        return s
+    return s
 
 
-def get_hits(X, y, estimator, transformer, per_class):
+def get_hits(
+        X: np.ndarray,
+        y: np.ndarray,
+        estimator: Type[BaseForest],
+        transformer: Type[TransformerMixin, BaseEstimator],
+        per_class: bool,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Return two NumPy arrays: One of real impact scores and the second of shadow impact scores
+    Get hits and rejections for a single iteration of the algorithm
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The features to be permuted.
+    y : np.ndarray
+        The labels.
+    estimator : Type[BaseForest]
+        The estimator to be used.
+    transformer : Type[TransformerMixin, BaseEstimator]
+        The transformer to be used for scaling.
+    per_class : bool
+        Whether to return per-class scores.
+
+    Returns
+    -------
+    S_r : np.ndarray
+        The real impact scores.
+    S_p : np.ndarray
+        The shadow impact scores.
+    zero_samps : np.ndarray
+        The samples that were zeroed out during scaling.
     """
-
-    hp_opts = {GridSearchCV, RandomizedSearchCV}
-
-    if X.ndim > 1:
-        X_tmp = np.copy(X, "C")
-
-    else:
-        X_tmp = X.reshape(-1, 1)
-
+    X_tmp = np.copy(X, "C") if X.ndim > 1 else X.reshape(-1, 1)
     X_resamp, zero_samps = get_shadow(X_tmp, transformer)
 
     n_features = X.shape[1]
@@ -280,12 +347,12 @@ def get_hits(X, y, estimator, transformer, per_class):
     clf = estimator.fit(X_resamp, y[zero_samps])
 
     # Get the best estimator if a grid search was used
-    if type(clf) in hp_opts:
+    if isinstance(clf, (GridSearchCV, RandomizedSearchCV)):
         clf = clf.best_estimator_
 
     S_r = shap_scores(clf, X_resamp, per_class)
 
-    if per_class == True:
+    if per_class:
 
         if S_r.ndim == 2:
 
@@ -300,14 +367,48 @@ def get_hits(X, y, estimator, transformer, per_class):
     else:
 
         S_p = S_r[n_features:]
-        S_r = S_r[0:n_features]
+        S_r = S_r[:n_features]
 
     return S_r, S_p, zero_samps
 
 
-def fs(X, y, estimator, C_ID, C, transformer, per_class):
+def fs(
+        X: np.ndarray,
+        y: np.ndarray,
+        estimator: Type[BaseForest],
+        C_ID: List[int],
+        C: Mapping[int, np.ndarray],
+        transformer: Type[TransformerMixin, BaseEstimator],
+        per_class: bool,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Randomly determine the impact of one feature from each cluster
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The features to be permuted.
+    y : np.ndarray
+        The labels.
+    estimator : Type[BaseForest]
+        The estimator to be used.
+    C_ID : List[int]
+        The cluster IDs.
+    C : Dict[int, np.ndarray]
+        The cluster IDs and their associated features.
+    transformer : Type[TransformerMixin, BaseEstimator]
+        The transformer to be used for scaling.
+    per_class : bool
+        Whether to return per-class scores.
+
+    Returns
+    -------
+    S_r : np.ndarray
+        The real impact scores.
+    S_p : np.ndarray
+        The shadow impact scores.
+    zero_samps : np.ndarray
+        The samples that were zeroed out during scaling.
     """
 
     # Select Random Feature from Each Cluster
@@ -319,9 +420,30 @@ def fs(X, y, estimator, C_ID, C, transformer, per_class):
     return S_r, S_p, zero_samps
 
 
-def global_imps(H_real, H_shadow, alpha, alternative):
+def global_imps(
+        H_real: np.ndarray,
+        H_shadow: np.ndarray,
+        alpha: float = 0.05,
+        alternative: str = "two-sided",
+) -> np.ndarray:
     """
     Used to calculate if real and shadow features differ significantly.
+
+    Parameters
+    ----------
+    H_real : np.ndarray
+        The real impact scores.
+    H_shadow : np.ndarray
+        The shadow impact scores.
+    alpha : float
+        The significance level.
+    alternative : str
+        The alternative hypothesis.
+
+    Returns
+    -------
+    np.ndarray
+        The p-values.
     """
 
     # Calculate p-values associated with each feature using the Wilcoxon Test
@@ -333,20 +455,44 @@ def global_imps(H_real, H_shadow, alpha, alternative):
 
         else:
             T_stat, p_val = wilcoxon(
-                H_real[:, column], H_shadow[:, column], alternative=alternative
+                H_real[:, column],
+                H_shadow[:, column],
+                alternative=alternative
             )
             p_vals_raw.append(p_val)
 
     # Correct for multiple comparisons
-    H_fdr = multipletests(p_vals_raw, alpha, method="fdr_bh")[0]
-
-    return H_fdr
+    return multipletests(p_vals_raw, alpha, method="fdr_bh")[0]
 
 
-def per_class_imps(H_real, H_shadow, alpha, y, Z_loc):
+def per_class_imps(
+        H_real: List[float],
+        H_shadow: List[float],
+        alpha: float,
+        y: np.ndarray,
+        Z_loc: List[np.ndarray],
+) -> np.ndarray:
     """
     Determines if Shapley values differ significantly on a
     per-class (one vs rest) level.
+
+    Parameters
+    ----------
+    H_real : List[float]
+        The real impact scores.
+    H_shadow : List[float]
+        The shadow impact scores.
+    alpha : float
+        The alpha level to use for the Wilcoxon test.
+    y : np.ndarray
+        The labels.
+    Z_loc : List[np.ndarray]
+        The indices of the samples in each cluster.
+
+    Returns
+    -------
+    np.ndarray
+        The p-values for each class.
     """
 
     H = []
@@ -409,10 +555,46 @@ def per_class_imps(H_real, H_shadow, alpha, y, Z_loc):
     return H_fdr
 
 
-def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, transformer, per_class_imp):
+def stage_1(
+        X: np.ndarray,
+        y: np.ndarray,
+        estimator: Type[ClassifierMixin, BaseEstimator],
+        alpha: float,
+        n_jobs: int,
+        C_ID: np.ndarray,
+        C: Mapping[int, List[int]],
+        transformer: Type[TransformerMixin, BaseEstimator],
+        per_class_imp: bool = False,
+) -> np.ndarray:
     """
     Trains each model and calculates Shapley values in parallel. Determines the
     significance of a feature.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The data.
+    y : np.ndarray
+        The labels.
+    estimator : Type[ClassifierMixin, BaseEstimator]
+        The estimator to use.
+    alpha : float
+        The alpha level to use for the Wilcoxon test.
+    n_jobs : int
+        The number of jobs to run in parallel.
+    C_ID : np.ndarray
+        The cluster IDs.
+    C : Mapping[int, List[int]]
+        The cluster indices.
+    transformer : Type[TransformerMixin, BaseEstimator]
+        The transformer to use.
+    per_class_imp : bool, optional
+        Whether to use per-class importance, by default False
+
+    Returns
+    -------
+    np.ndarray
+        The p-values.
     """
 
     # Calculate how often features are selected by various algorithms
@@ -424,21 +606,48 @@ def stage_1(X, y, estimator, alpha, n_jobs, C_ID, C, transformer, per_class_imp)
     H_real = [x[0] for x in D]
     H_shadow = [x[1] for x in D]
     Z_loc = [x[2] for x in D]
-
-    if per_class_imp:
-        H_fdr = per_class_imps(H_real, H_shadow, alpha, y, Z_loc)
-
-    else:
-        H_fdr = global_imps(
-            np.asarray(H_real), np.asarray(H_shadow), alpha, alternative="greater"
+    return (
+        per_class_imps(H_real, H_shadow, alpha, y, Z_loc)
+        if per_class_imp
+        else global_imps(
+            np.asarray(H_real),
+            np.asarray(H_shadow),
+            alpha,
+            alternative="greater",
         )
+    )
 
-    return H_fdr
 
-
-def update_lists(A, T, R, C_INDS, PH, PR):
+def update_lists(
+        A: Set[int],
+        T: Set[int],
+        R: Set[int],
+        C_INDS: np.ndarray,
+        PH: List[bool],
+        PR: List[bool],
+) -> Tuple[Set[int], Set[int], Set[int], np.ndarray]:
     """
     Update sets of retained, rejected, and tentative features
+
+    Parameters
+    ----------
+    A : Set[int]
+        The set of accepted features.
+    T : Set[int]
+        The set of tentative features.
+    R : Set[int]
+        The set of rejected features.
+    C_INDS : np.ndarray
+        The cluster indices.
+    PH : List[bool]
+        Mask of the clusters that are accepted.
+    PR : List[bool]
+        Mask of the clusters that are rejected.
+
+    Returns
+    -------
+    Tuple[Set[int], Set[int], Set[int], np.ndarray]
+        The updated sets of accepted, tentative, and rejected features.
     """
 
     A_new = set(C_INDS[PH])
@@ -454,9 +663,47 @@ def update_lists(A, T, R, C_INDS, PH, PR):
     return A_new, T_new, R_new, np.asarray(T_idx)
 
 
-def get_clusters(X, linkage_method, T, criterion, transformer, metric):
+def get_clusters(
+        X: np.ndarray,
+        linkage_method: str,
+        T: float,
+        criterion: str,
+        transformer: Type[TransformerMixin, BaseEstimator],
+        metric: Union[str, ETCProx],
+) -> Tuple[List[int], Mapping[int, List[int]], np.ndarray]:
     """
     Creates the flat clusters to be used by the rest of the algorithm.
+
+    Parameters
+    ----------
+    X : array-like of shape (n_samples, n_features)
+        The training input samples.
+
+    linkage_method : str
+        The linkage method to use for hierarchical clustering.
+
+    T : float
+        The threshold to use for hierarchical clustering.
+
+    criterion : str
+        The criterion to use for hierarchical clustering.
+
+    transformer : TransformerMixin
+        The transformer to use for scaling features.
+
+    metric : str
+        The metric to use for calculating distances.
+
+    Returns
+    -------
+    cluster_ids : array-like of shape (n_features,)
+        The cluster ids for each feature.
+
+    cluster_id_to_feature_ids : dict
+        A dictionary mapping cluster ids to feature ids.
+
+    cluster_id_to_feature_names : dict
+        A dictionary mapping cluster ids to feature names.
     """
 
     # Cluster Features
@@ -486,41 +733,38 @@ def get_clusters(X, linkage_method, T, criterion, transformer, metric):
     cluster_ids = hierarchy.fcluster(D, T, criterion=criterion)
     cluster_id_to_feature_ids = defaultdict(list)
 
-    selected_clusters_ = []
     for idx, cluster_id in enumerate(cluster_ids):
         cluster_id_to_feature_ids[cluster_id].append(idx)
 
-    for id in cluster_id_to_feature_ids.keys():
-        selected_clusters_.append(id)
-
+    selected_clusters_ = list(cluster_id_to_feature_ids)
     return selected_clusters_, cluster_id_to_feature_ids, D
 
 
 def select_features(
-    transformer,
-    estimator,
-    stage_2_estimator,
-    per_class_imp,
-    X,
-    max_iter,
-    y,
-    alpha,
-    p,
-    p2,
-    metric,
-    linkage,
-    thresh,
-    criterion,
-    verbose,
-    n_jobs,
-    run_stage_2,
+        transformer: Type[TransformerMixin, BaseEstimator],
+        estimator: Type[ClassifierMixin, BaseEstimator],
+        stage_2_estimator: Type[ClassifierMixin, BaseEstimator],
+        per_class_imp: bool,
+        X: np.ndarray,
+        max_iter: int,
+        y: np.ndarray,
+        alpha: float,
+        p: float,
+        p2: float,
+        metric: Union[str, ETCProx],
+        linkage: str,
+        thresh: float,
+        criterion: str,
+        verbose: int,
+        n_jobs: int,
+        run_stage_2: bool,
 ):
     """
     Function to run each iteration of the feature selection process.
     """
 
     # Remove zero-variance features
-    nZVF = VarianceThreshold().fit(X)
+    nZVF: VarianceThreshold = VarianceThreshold().fit(X)
     X_red = nZVF.transform(X)
 
     # Get clusters
@@ -564,33 +808,22 @@ def select_features(
 
         if ITERATION >= 5:
             P_h, P_r = beta_binom_test(H_arr, ITERATION - 4, alpha, p, p2)
-
             F_accepted, F_tentative, F_rejected, _ = update_lists(
                 F_accepted, F_tentative, F_rejected, T_idx, P_h, P_r
             )
-
             T_idx = np.asarray(list(F_tentative))
-
             idx = np.asarray([IDX[x] for x in T_idx])
-
             if len(F_tentative) == 0:
                 break
-
-            else:
-                H_arr = H_arr[:, idx]
-
-                IDX = {x: i for i, x in enumerate(T_idx)}
+            H_arr = H_arr[:, idx]
+            IDX = {x: i for i, x in enumerate(T_idx)}
 
         if verbose > 0:
             print(
-                "Round %d" % (ITERATION),
-                "/ Tentative (Accepted):",
-                len(F_accepted),
-                "/ Tentative (Not Accepted):",
-                len(F_tentative),
-                "/ Rejected:",
-                len(F_rejected),
-                sep=" ",
+                f"Round {ITERATION:d} "
+                f"/ Tentative (Accepted): {len(F_accepted)} "
+                f"/ Tentative (Not Accepted): {len(F_tentative)} "
+                f"/ Rejected: {len(F_rejected)}"
             )
 
     S = []
@@ -635,12 +868,12 @@ def select_features(
             F_id = S[ix]
             C = rev_cluster_id[F_id]
 
-            if C not in best_in_clus:
+            if (
+                    C in best_in_clus
+                    and f_val > best_in_clus[C][1]
+                    or C not in best_in_clus
+            ):
                 best_in_clus[C] = (F_id, f_val)
-
-            else:
-                if f_val > best_in_clus[C][1]:
-                    best_in_clus[C] = (F_id, f_val)
 
         S_2 = [v[0] for _, v in best_in_clus.items()]
         S_2.sort()
@@ -654,16 +887,12 @@ def select_features(
         S_2 = np.where(S_2 > 0, True, False)
 
     if verbose > 0:
-        print("Final Feature Set Contains %s Features." % str(S_1.sum()))
+        print(f"Final Feature Set Contains {str(S_1.sum())} Features.")
 
         if run_stage_2:
-            print("Final Set of Best Features Contains %s Features." % str(S_2.sum()))
+            print(f"Final Set of Best Features Contains {str(S_2.sum())} Features.")
 
-    if run_stage_2:
-        return S_1, S_2, sage, D
-
-    else:
-        return S_1, None, None, D
+    return (S_1, S_2, sage, D) if run_stage_2 else (S_1, None, None, D)
 
 
 ##################################################################################
@@ -671,88 +900,77 @@ def select_features(
 ##################################################################################
 class Triglav(TransformerMixin, BaseEstimator):
     """
+    Triglav is a feature selection algorithm that uses a hierarchical
+    clustering algorithm to group features into clusters. The
+    importance of each cluster is then calculated using a Shapley
+    value approach. The most important features from each cluster are
+    then selected using a SAGE approach.
 
-    Inputs:
-
+    Attributes
+    ----------
     transformer: default = NoScale()
         The transformer to be used to scale features.
-
     estimator: default = ExtraTreesClassifier(512, bootstrap = True)
         The estimator used to calculate Shapley scores.
-
     stage_2_estimator: default = ExtraTreesClassifier(512)
         The estimator used to calculate SAGE values. Only used if the
         'run_stage_2' is set to True.
-
     per_class_imp: bool, default = False
         Specifies if importance scores are calculated globally or per
         class. Note, per class importance scores are calculated in a
         one vs rest manner.
-
     n_iter: int, default = 40
         The number of iterations to run Triglav.
-
     p_1: float, default = 0.65
         Used to determine the shape of the Beta-Binomial distribution
         modelling hits.
-
     p_2: float, default = 0.30
         Used to determine the shape of the Beta-Binomial distribution
-        modelling failures.
-
+        modelling misses.
     metric: str, default = "correlation"
         The dissimilarity measure used to calculate distances between
         features.
-
     linkage: str, default = "complete"
         The type of hierarchical clustering method to apply. The available
         methods include: single, complete, ward, average, centroid.
-
     thresh: float, default = 2.0
         The threshold or max number of clusters.
-
     criterion: str, default = "distance"
         The method used to form flat clusters. The available methods
         include: inconsistent, distance, maxclust, monocrit,
         maxclust_monocrit.
-
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
-
     run_stage_2: bool, default = True
         This stage will determine the best feature from each of the
         selected clusters by calculating SAGE values.
-
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
-
     n_jobs: int, default = 10
         The number of threads
-
-    Returns:
-
-    An Triglav object.
     """
 
     def __init__(
-        self,
-        transformer=NoScale(),
-        estimator=ExtraTreesClassifier(512, bootstrap=True),
-        stage_2_estimator=ExtraTreesClassifier(512),
-        per_class_imp: bool = False,
-        n_iter: int = 40,
-        p_1: float = 0.65,
-        p_2: float = 0.30,
-        metric: Union[str, ETCProx] = "correlation",
-        linkage: str = "complete",
-        thresh: Union[int, float] = 2.0,
-        criterion: str = "distance",
-        alpha: float = 0.05,
-        run_stage_2: bool = True,
-        verbose: int = 0,
-        n_jobs: int = 10,
+            self,
+            transformer=NoScale(),
+            estimator=ExtraTreesClassifier(512, bootstrap=True),
+            stage_2_estimator=ExtraTreesClassifier(512),
+            per_class_imp: bool = False,
+            n_iter: int = 40,
+            p_1: float = 0.65,
+            p_2: float = 0.30,
+            metric: Union[str, ETCProx] = "correlation",
+            linkage: str = "complete",
+            thresh: Union[int, float] = 2.0,
+            criterion: str = "distance",
+            alpha: float = 0.05,
+            run_stage_2: bool = True,
+            verbose: int = 0,
+            n_jobs: int = 10,
     ):
 
+        self.n_class_ = None
+        self.classes_ = None
         self.transformer = transformer
         self.estimator = estimator
         self.stage_2_estimator = stage_2_estimator
@@ -819,54 +1037,79 @@ class Triglav(TransformerMixin, BaseEstimator):
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         """
-        Input:
+        Parameters
+        ----------
+        X : np.ndarray
+            NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+            the number of features (taxa, OTUs, ASVs, etc).
 
-        X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
-        the number of features (taxa, OTUs, ASVs, etc).
-
-        Returns:
-
-        X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
-        the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
+        Returns
+        -------
+        np.ndarray
+            NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
+            the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         """
         check_is_fitted(self, attributes="selected_")
 
         return X[:, self.selected_]
 
-    def fit_transform(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def fit_transform(
+            self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            **fit_params
+    ) -> np.ndarray:
         """
-        Input:
+        Parameters
+        ----------
+        X : np.ndarray
+            NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+            the number of features (taxa, OTUs, ASVs, etc).
+        y : np.ndarray, optional
+            NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+            of 'y' should be a factor.
+        fit_params : dict, optional
 
-        X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
-        the number of features (taxa, OTUs, ASVs, etc).
-
-        y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
-        of 'y' should be a factor.
-
-        Returns:
-
-        X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
-        the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
+        Returns
+        -------
+        np.ndarray
+            NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
+            the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
         """
         self.fit(X, y)
 
         return self.transform(X)
 
-    def visualize_hclust(self, X: np.ndarray, y: np.ndarray):
+    def visualize_hclust(
+            self,
+            X: np.ndarray,
+            y: np.ndarray,
+            ax: matplotlib.axes.Axes = None,
+            **dendrogram_kwargs,
+    ) -> dict:
         """
-        Input:
+        Visualize the hierarchical clustering dendrogram.
 
-        X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
-        the number of features (taxa, OTUs, ASVs, etc).
+        Parameters
+        ----------
+        X : np.ndarray
+            NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+            the number of features (taxa, OTUs, ASVs, etc).
+        y : np.ndarray
+            NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+            of 'y' should be a factor.
+        ax : matplotlib.axes.Axes, optional
+            The axes on which to plot the dendrogram, by default None. If None, the
+            dendrogram will be plotted to a new figure subplot axis.
 
-        y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
-        of 'y' should be a factor.
-
-        Returns:
-
-        A visualization of the dendrogram given the current parameters. This figure
-        will be saved as "Triglav_Dend.svg" in the current working directory.
+        Returns
+        -------
+        dict
+            A dictionary of data structures computed to render the dendrogram.
+            See https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.dendrogram.html
+            for more details.
         """
+
         X_in, y_in = self._check_params(X, y)
 
         # Remove zero-variance features
@@ -883,14 +1126,10 @@ class Triglav(TransformerMixin, BaseEstimator):
             self.metric,
         )
 
-        # Plot Dendrogram
-        fig, axes = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
 
-        dend = hierarchy.dendrogram(D, ax=axes)
-
-        plt.savefig("Triglav_Dend.svg")
-
-        plt.close()
+        return hierarchy.dendrogram(D, ax=ax, **dendrogram_kwargs)
 
     def _check_params(self, X, y):
 
@@ -952,14 +1191,10 @@ class Triglav(TransformerMixin, BaseEstimator):
         if self.thresh <= 0:
             raise ValueError("The 'thresh' parameter should be greater than one.")
 
-        if self.metric not in metrics:
-            if type(self.metric) == ETCProx:
-                pass
-
-            else:
-                raise ValueError(
-                    "The 'metric' parameter should be one supported by Scikit-Learn or 'ETCProx'."
-                )
+        if self.metric not in metrics and type(self.metric) != ETCProx:
+            raise ValueError(
+                "The 'metric' parameter should be one supported by Scikit-Learn or 'ETCProx'."
+            )
 
         if self.criterion not in crit_set:
             raise ValueError(
