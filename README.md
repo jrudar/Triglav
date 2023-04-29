@@ -58,12 +58,16 @@ pip install .
 ## Class Parameters
 
     transformer: default = NoScale()
-    	The transformer to be used to scale features. One can use
-	the scikit-learn.preprocessing transformers. In addition,
-	CLR and Scaler (converts each row into frequencies) are
-	available by importing 'CLRTransformer' and 'Scaler' from the
-	'triglav' package.
+        The transformer to be used to scale features. One can use
+        the scikit-learn.preprocessing transformers. In addition,
+        CLR and Scaler (converts each row into frequencies) are
+        available by importing 'CLRTransformer' and 'Scaler' from the
+        'triglav' package.
 	
+    sampler: default = NoResample()
+        The resampling method used for imbalanced classes. Should be
+        compatable with 'imblearn' or use an 'imblearn' resampler.
+
     estimator: default = ExtraTreesClassifier(512, bootstrap = True)
         The estimator used to calculate Shapley scores.
 
@@ -142,92 +146,6 @@ pip install .
 
         X_transformed: NumPy array of shape (m, p) where 'm' is the number of samples and 'p'
         the number of features (taxa, OTUs, ASVs, etc). 'p' <= m
-
-## Example Usage - Set Up Triglav and Visualize Dendrogram
-
-```python
-from triglav import Triglav
-
-from sklearn.datasets import make_classification
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier
-from sklearn.pipeline import make_pipeline
-
-import seaborn as sns
-
-import matplotlib.pyplot as plt
-
-import pandas as pd
-
-import numpy as np
-
-if __name__ == "__main__":
-   # Create the dataset. The useful features are found in the first 7 columns of X (indicies 0-6)
-   X, y = make_classification(n_samples=200,
-                              n_features=20,
-                              n_informative=5,
-                              n_redundant=2,
-                              n_repeated=0,
-                              n_classes=2,
-                              shuffle=False,
-                              random_state=0)
-
-   # Split into train and test sets
-   X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                       test_size=0.2,
-                                                       random_state=0,
-                                                       stratify=y)
-
-   # Standardize
-   s_trf = StandardScaler().fit(X_train)
-   X_train = s_trf.transform(X_train)
-   X_test = s_trf.transform(X_test)
-
-   # Set up Triglav
-   model = Triglav(estimator=HistGradientBoostingClassifier(min_samples_leaf=15),
-                   per_class_imp=True,
-                   n_jobs=5,
-                   metric="euclidean",
-                   linkage="ward",
-                   criterion="maxclust",
-                   transformer=StandardScaler())
-
-   # Visualize clustering (Figure 1 Below)
-   model.visualize_hclust(X_train, y_train)
-
-   # Reset the threshold based on inspection of the dendrogram
-   model.thresh = 9
-
-   # Identify predictive features
-   model.fit(X_train, y_train)
-
-   # Transform the test data
-   X_test_trf = model.transform(X_test)
-
-   # Visualize feature importance results using SAGE (Figure 2 below)
-   model.sage_values_.plot_sign(feature_names=np.asarray([i for i in range(20)])[model.selected_])
-   plt.show()
-   plt.close()
-
-   # Check cross-validation performance (Entire Dataset) (Original Data - Mean Score = 0.895 / Transformed Data - Mean Score = 0.915)
-   clf = make_pipeline(StandardScaler(), ExtraTreesClassifier(128, random_state=0))
-
-   scores = cross_val_score(clf, X, y, cv=10)
-   print(np.mean(scores))
-
-   scores = cross_val_score(clf, model.transform(X), y, cv=10)
-   print(np.mean(scores))
-
-```
-
-Figure 1: Clustering of Features. Colors are added by the SciPy Dendrogram function.
-![alt text](Triglav_Dend.jpg)
-
-Figure 2: SAGE Values associated with each of the selected features. All seven
-informative features were identified by Triglav and one uninformative feature (12) was
-also identified.
-![alt text](sage_values.jpeg)
 
 ## Disclaimer
 
