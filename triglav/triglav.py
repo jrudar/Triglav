@@ -1244,7 +1244,7 @@ class Triglav(TransformerMixin, BaseEstimator):
                 "The 'verbose' parameter should be greater than or equal to zero."
             )
 
-        if self.max_iter <= 0:
+        if self.n_iter <= 0:
             raise ValueError(
                 "The 'max_iter' parameter should be at least one."
             )
