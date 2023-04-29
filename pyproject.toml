@@ -2,12 +2,18 @@
 name = "triglav"
 version = "1.0.0.dev"
 authors = [
-    {name = "Josip Rudar", email = "rudarj@uoguelph.ca"}
+    {name = "Josip Rudar", email = "rudarj@uoguelph.ca"},
+    {name = "Peter Kruczkiewicz"},
+    {name = "G. Brian Golding"},
+    {name = "Oliver Lung"},
+    {name = "Mehrdad Hajibabaei", email = "mhajibab@uoguelph.ca"}
 ]
-description = "Supervised Selection of Features Using Iterative Refinement"
+description = "Triglave: Supervised Selection of Features Using Iterative Refinement"
 keywords = [
     "ecology",
     "multivariate statistics",
+    "feature selection",
+    "stability selection"
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
@@ -23,7 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Ecology :: Multivariate Statistics",
+    "Topic :: Ecology :: Multivariate Statistics :: Feature Selection :: Stability Selection",
 ]
 dependencies = [
     "matplotlib >= 3.4.3",
@@ -35,6 +41,7 @@ dependencies = [
     "sage-importance >= 0.0.5",
     "scipy >= 1.7.3",
     "joblib >= 1.1.0",
+    "imblearn >= 0.10.1"
 ]
 
 [project.urls]
