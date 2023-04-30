@@ -14,7 +14,7 @@ modifications:
 2) Like Boruta, a set of shadow features is created. However, an ensemble
    of classifiers is used to measure the Shapley scores of each real feature 
    and its shadow counterpart, producing a distribution of scores. A Wilcoxon 
-   signed-rank test is used to determine the significance of each cluster.
+   signed-rank test is used to determine the significance of each cluster
    and p-values are adjusted to correct for multiple comparisons across each 
    round. Clusters with adjusted p-values below 'alpha' are considered a hit.
 
