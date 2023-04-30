@@ -7,26 +7,28 @@ all relevant features using an iterative refinement approach. This
 approach is based after the method introduced in Boruta with several
 modifications:
 
-1) The "importance" of real and shadow features are based off of
-   Shapley scores.
+1) Features are clustered and the impact of each cluster is assessed as
+   the average of the Shapley scores of the features associated with
+   each cluster.
 
-2) Features are clustered and an ensemble approach is used to identify
-   impactful clusters. Shapley scores of real feature are compared to
-   their shadow counterparts using a Wilcoxon signed-rank test. p-values
-   are adjusted to correct for multiple comparisons across each round.
-   Only features below a pre-specified alpha are considered a "hit".
-   This should return all relevant features since features are chosen based
-   on which clusters are retained. Furthermore, this approach is model
-   avoids potential biases associated with feature importance scores from
-   Random Forest models.
+2) Like Boruta, a set of shadow features is created. However, an ensemble
+   of classifiers is used to measure the Shapley scores of each real feature 
+   and its shadow counterpart, producing a distribution of scores. A Wilcoxon 
+   signed-rank test is used to determine the significance of each cluster.
+   and p-values are adjusted to correct for multiple comparisons across each 
+   round. Clusters with adjusted p-values below 'alpha' are considered a hit.
 
-3) A beta-binomial distribution is used to calculate the p-value
-   associated with each hit. These are corrected for multiple
-   comparisions (FDR and FWER). This model may be more appropriate since
-   the successful selection of a cluster at each round may be less likely
-   due since only one feature per cluster is tested.
+3) At each iteration at or over 'n_iter_fwer', two beta-binomial distributions 
+   are used to determine if a cluster should be retained or not. The first
+   distribution models the hit rate while the the second distribution models 
+   the rejection rate. For a cluster to be successfully selected the probability 
+   of a hit must be significant after correcting for multiple comparisons and
+   applying a Bonferroni correction for each iteration greater than or equal
+   to the 'n_iter_fwer' parameter. For a cluster to be rejected a similar round
+   of reasoning applies. Clusters that are neither selected or rejected remain
+   tentative.
 
-5) After the iterative refinement stage SAGE scores are used to select
+4) After the iterative refinement stage SAGE scores could be used to select
    the best feature from each cluster.
 
 ## Install
@@ -83,6 +85,9 @@ pip install .
     n_iter: int, default = 40
         The number of iterations to run Triglav.
 
+    n_iter_fwer: int, default = 11
+        The iteration at which Bonferroni corrections begin.
+
     p_1: float, default = 0.65
         Used to determine the shape of the Beta-Binomial distribution
         modelling hits.
@@ -94,7 +99,7 @@ pip install .
     metric: str, default = "correlation"
         The dissimilarity measure used to calculate distances between
         features. To use Extremely Randomized Trees proximities one
-	has to import 'ETCProx' from the 'triglav' package.
+        has to import 'ETCProx' from the 'triglav' package.
 
     linkage: str, default = "complete"
         The type of hierarchical clustering method to apply. The available
