@@ -41,7 +41,7 @@ dependencies = [
     "sage-importance >= 0.0.5",
     "scipy >= 1.7.3",
     "joblib >= 1.1.0",
-    "imblearn >= 0.10.1"
+    "imbalanced-learn >= 0.10.1"
 ]
 
 [project.urls]

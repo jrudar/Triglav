@@ -31,6 +31,16 @@ modifications:
 4) After the iterative refinement stage SAGE scores could be used to select
    the best feature from each cluster.
 
+While this method may not produce all features important for classification,
+it does have some nice properties. First of all, by using an Extremely 
+Randomized Trees model as the default, dependencies between features can be 
+accounted for. Further, decision tree models are better able to partition 
+the sample space. This can result in the selection of both globally optimal
+and locally optimal features. Finally, this approach identifies stable clusters of 
+features since only those which consistently pass the Wilcoxon signed-rank test 
+are selected. This makes this approach more robust to differences in training
+data. Finally,
+
 ## Install
 
 With Conda from BioConda:
