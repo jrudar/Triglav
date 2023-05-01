@@ -39,7 +39,7 @@ the sample space. This can result in the selection of both globally optimal
 and locally optimal features. Finally, this approach identifies stable clusters of 
 features since only those which consistently pass the Wilcoxon signed-rank test 
 are selected. This makes this approach more robust to differences in training
-data. Finally,
+data.
 
 ## Install
 
