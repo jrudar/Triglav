@@ -1,5 +1,5 @@
 ---
-title: 'Knock Knock. Who’s There? Triglav: Iterative Refinement and Selection of Stable Features Using Shapley Scores'
+title: 'Triglav: Iterative Refinement and Selection of Stable Features Using Shapley Scores'
 tags:
   - Python
   - feature selection
@@ -39,21 +39,36 @@ bibliography: paper.bib
 
 Modern data has become increasingly complex, with the number of generated features growing larger for many datasets. This increase can make the analysis of this data difficult due to the inclusion of noise and other irrelevant features. To tackle this problem, feature selection methods are often used to reduce the complexity of the data while identifying the most relevant features given the task at hand. With genomic and metagenomic datasets this task has become increasingly important since generating models of the data and an understanding of how these models work directly improves our knowledge of complex systems such as disease process, viral transmission into new hosts, and how ecosystems change over time. While most feature selection approaches tend to remove redundant features, this may not necessarily be what is best in the case of biological data. Often, redundant features could allow for important biological insights since organisms and genes form interaction networks which should be considered together. Therefore, it is necessary to develop tools which can identify all relevant predictive features while also ensuring that the selected features reflect actual differences and not the nuances between different sets of training data.
 
-
 # Statement of need
 
 `Triglav`, named after the Slavic god of divination, is a Python package which can be used to identify relevant and stable sets of features in high-dimensional datasets. `Triglav`, which was inspired by Boruta, uses an iterative approach to identify a stable and predictive subset of features. Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification of impactful clusters over many iterations determines if a cluster of features is retained or discarded. This approach is particularly beneficial since the identification of impactful clusters (and features) is accomplished by using explainable artificial intelligence approaches. This provides end-users of this package with the ability to understand which features are informative based on their impact on the model. Further, this package was tested to ensure that the features selected were stable across different training sets. This is important since a stable set of predictive features may point to a useful interpretation of the data.
 
 # Outline of the Triglav Algorithm
 
-The core assumption behind 'Triglav' is that clusters of features sharing similar values across all samples should be discoverable. This is not an unreasonable assumption in biological datasets. For example, different patterns in the abundance of gut bacteria could exist between healthy controls and
-Crohn's Disease patients. To take advantage of this observation, `Triglav` begins by clustering features. The first stage of our approach randomly selects one feature from each cluster. A set of shadow features are then created by randomly sampling without replacement from the distribution of each selected feature. The
-shadow data is then combined with the original data and is used to train a classification model. Shapley scores are then calculated. This process is repeated to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts. A Wilcoxon signed-rank test is then used to determine if the distribution of Shapley scores belonging to each cluster of real features is greater than the corresponding shadow cluster. These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart. An overview is provided in Figure 1. A beta-binomial distribution is then used to determine if a feature is to be selected. A second beta-binomial distribution is also used to determine when a feature is to be rejected. Finally, the best feature from each cluster can be optionally discovered by calculating the SAGE importance score. This step is optional. A visual overview is provided in Figure 2.
+The core assumption behind 'Triglav' is that clusters of features sharing similar values across all samples should be discoverable.
+This is not an unreasonable assumption in biological datasets.
+For example, different patterns in the abundance of gut bacteria could exist between healthy controls and Crohn's Disease patients.
+To take advantage of this observation, `Triglav` begins by clustering features.
+The first stage of our approach randomly selects one feature from each cluster.
+A set of shadow features are then created by randomly sampling without replacement from the distribution of each selected feature.
+The shadow data is then combined with the original data and is used to train a classification model.
+Shapley scores are then calculated [@shapley1951notes].
+This process is repeated to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts.
+A Wilcoxon signed-rank test is then used to determine if the distribution of Shapley scores belonging to each cluster of real features is greater than the corresponding shadow cluster.
+These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart.
+An overview is provided in \autoref{fig:overview}.
+A beta-binomial distribution is then used to determine if a feature is to be selected.
+A second beta-binomial distribution is also used to determine when a feature is to be rejected.
+Finally, the best feature from each cluster can be optionally discovered by calculating the SAGE importance score.
+This step is optional.
+A visual overview is provided in \autoref{fig:overview2}.
 
 # Ongoing Research
 
 # Figures
 
-![Figure 1: A high-level overview of the the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.\label{FIG1:OVERVIEW}](Figure 1.png)
+![A high-level overview of the the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.\label{fig:overview}](Figure 1.png)
 
-![Figure 2: A high-level overview of the the second half of the `Triglav` algorithm. (A) The output of this part of the algorithm is a list of selected features. Two different beta-binomial distributions are used to determine if a feature is selected (A) or rejected (B). These distributions are used by `Triglav` since they can model over-dispersion in zero-counts due to the random selection of features in the first-half of the algorithm. For a feature to be selected, the number of times a significant difference was observed should fall within the critical region of (A), the unshaded area of the plot. For a feature to be rejected it should fall within the red shaded region of (B).\label{FIG2:OVERVIEW}](Figure 2.png)
+![A high-level overview of the the second half of the `Triglav` algorithm. (A) The output of this part of the algorithm is a list of selected features. Two different beta-binomial distributions are used to determine if a feature is selected (A) or rejected (B). These distributions are used by `Triglav` since they can model over-dispersion in zero-counts due to the random selection of features in the first-half of the algorithm. For a feature to be selected, the number of times a significant difference was observed should fall within the critical region of (A), the unshaded area of the plot. For a feature to be rejected it should fall within the red shaded region of (B).\label{fig:overview2}](Figure 2.png)
+
+# References
