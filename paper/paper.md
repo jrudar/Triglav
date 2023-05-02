@@ -89,6 +89,9 @@ National Centre for Foreign Animal Disease with the Canadian Food Inspection Age
 to provide a tool-set which will identify predictive features and explain how these features are used to explain a sample's location 
 in projection and classification.
 
+# Acknowledgements
+
+
 # Figures
 
 ![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.\label{fig:overview}](Figure 1.png)
