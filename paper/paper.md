@@ -54,4 +54,4 @@ shadow data is then combined with the original data and is used to train a class
 
 # Figures
 
-![Figure 1: A high-level overview of the the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.](Figure 1.png)
+![Figure 1: A high-level overview of the the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.](https://github.com/jrudar/Triglav/blob/main/paper/Figure 1.png)
