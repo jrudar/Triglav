@@ -31,7 +31,7 @@ affiliations:
    index: 2
  - name: National Centre for Foreign Animal Disease, Canadian Food Inspection Agency, Winnipeg, Manitoba, Canada
    index: 3
-date: 13 August 2017
+date: 2 May 2023
 bibliography: paper.bib
 ---
 
