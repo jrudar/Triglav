@@ -1,5 +1,5 @@
 ---
-title: 'Knock Knock. Who’s There? Triglav: an All Relevant Feature Selection Method Using Shapley Scores to Identify Stable Sets of Features'
+title: 'Knock Knock. Whoâ€™s There? Triglav: Iterative Refinement and Selection of Stable Features Using Shapley Scores'
 tags:
   - Python
   - feature selection
