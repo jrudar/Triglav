@@ -35,7 +35,7 @@ from imblearn.over_sampling.base import BaseOverSampler
 
 
 ##################################################################################
-# Utility Classes
+# Utility Classes - Transform and Scaling
 ##################################################################################
 class NoScale(TransformerMixin, BaseEstimator):
     """
@@ -46,19 +46,6 @@ class NoScale(TransformerMixin, BaseEstimator):
         pass
 
     def fit_transform(self, X, y=None, **fit_params):
-        return X
-
-
-class NoResample(TransformerMixin, BaseEstimator):
-    """
-    No resampling transformer.
-    """
-
-    def __init__(self):
-        pass
-
-    def fit_transform(self, X, y=None, **fit_params):
-
         return X
 
 
@@ -90,6 +77,9 @@ class CLRTransformer(TransformerMixin, BaseEstimator):
         return clr(multiplicative_replacement(closure(X[self.zero_samps])))
 
 
+##################################################################################
+# Utility Classes - Calculation of Dissimilarities for Clustering
+##################################################################################
 class ETCProx:
     def __init__(self, n_estimators=1024, min_samples_split=0.33, n_sets=5):
         self.n_estimators = n_estimators
@@ -139,7 +129,23 @@ class ETCProx:
 
 
 ##################################################################################
-# Utility Functions
+# Utility Classes - Resampling
+##################################################################################
+class NoResample(TransformerMixin, BaseEstimator):
+    """
+    No resampling transformer.
+    """
+
+    def __init__(self):
+        pass
+
+    def fit_transform(self, X, y=None, **fit_params):
+
+        return X
+
+
+##################################################################################
+# Functions used by Triglav
 ##################################################################################
 def beta_binom_test(
     X: np.ndarray,
