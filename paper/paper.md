@@ -13,7 +13,6 @@ authors:
     affiliation: 1,3
   - name: Peter Kruczkiewicz
     orcid: 0000-0002-0044-9460
-    corresponding: true
     affiliation: 3
   - name: Oliver Lung
     orcid: 0000-0002-0044-9460
