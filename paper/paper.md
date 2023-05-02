@@ -51,3 +51,7 @@ Crohn's Disease patients. To take advantage of this observation, `Triglav` begin
 shadow data is then combined with the original data and is used to train a classification model. Shapley scores are then calculated. This process is repeated to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts. A Wilcoxon signed-rank test is then used to determine if the distribution of Shapley scores belonging to each cluster of real features is greater than the corresponding shadow cluster. These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart. A beta-binomial distribution is then used to determine if a feature is to be selected. A second beta-binomial distribution is also used to determine when a feature is to be rejected. Finally, the best feature from each cluster can be optionally discovered by calculating the SAGE importance score. This step is optional. A visual overview is provided in Figure 1.
 
 # Ongoing Research
+
+# Figures
+
+![Figure 1: A high-level overview of the the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster..\label{FIG1}](Figure 1.png)
