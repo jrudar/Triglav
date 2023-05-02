@@ -45,23 +45,30 @@ Modern data has become increasingly complex, with the number of generated featur
 
 # Outline of the Triglav Algorithm
 
-The core assumption behind `Triglav` is that clusters of features sharing similar values across all samples should be discoverable. 
-This is not an unreasonable assumption in biological datasets. 
-For example, different patterns in the abundance of gut bacteria could exist between healthy controls and Crohn's Disease patients. 
-To take advantage of this observation, `Triglav` begins by clustering features. 
-The first stage of our approach randomly selects one feature from each cluster. 
-A set of shadow features are then created by randomly sampling without replacement from the distribution of each selected feature. 
-The shadow data is then combined with the original data and is used to train a classification model. 
-Shapley scores are then calculated [@shapley1951notes]. 
-This process is repeated to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts. 
-A Wilcoxon signed-rank test is then used to determine if the distribution of Shapley scores belonging to each cluster of real features is greater than the corresponding shadow cluster. 
-These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart. 
+The core assumption behind 'Triglav' is that clusters of features sharing similar values across all samples should be discoverable.
+This is not an unreasonable assumption in biological datasets.
+For example, different patterns in the abundance of gut bacteria could exist between healthy controls and Crohn's Disease patients.
+To take advantage of this observation, `Triglav` begins by clustering features.
+The first stage of our approach randomly selects one feature from each cluster.
+A set of shadow features are then created by randomly sampling without replacement from the distribution of each selected feature.
+The shadow data is then combined with the original data and is used to train a classification model.
+Shapley scores are then calculated [@shapley1951notes].
+This process is repeated to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts.
+A Wilcoxon signed-rank test is then used to determine if the distribution of Shapley scores belonging to each cluster of real features is greater than the corresponding shadow cluster.
+These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart.
+An overview is provided in \autoref{fig:overview}.
 A beta-binomial distribution is then used to determine if a feature is to be selected.
 A second beta-binomial distribution is also used to determine when a feature is to be rejected.
-Finally, the best feature from each cluster can be optionally discovered by calculating the SAGE importance score. 
-This step is optional. 
-A visual overview is provided in Figure 1.
+Finally, the best feature from each cluster can be optionally discovered by calculating the SAGE importance score.
+This step is optional.
+A visual overview is provided in \autoref{fig:overview2}.
 
 # Ongoing Research
+
+# Figures
+
+![A high-level overview of the the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.\label{fig:overview}](Figure 1.png)
+
+![A high-level overview of the the second half of the `Triglav` algorithm. (A) The output of this part of the algorithm is a list of selected features. Two different beta-binomial distributions are used to determine if a feature is selected (A) or rejected (B). These distributions are used by `Triglav` since they can model over-dispersion in zero-counts due to the random selection of features in the first-half of the algorithm. For a feature to be selected, the number of times a significant difference was observed should fall within the critical region of (A), the unshaded area of the plot. For a feature to be rejected it should fall within the red shaded region of (B).\label{fig:overview2}](Figure 2.png)
 
 # References
