@@ -49,6 +49,8 @@ The core assumption behind 'Triglav' is that clusters of features sharing simila
 
 # Ongoing Research
 
+Currently, this method is being used in projects to discover features capable of predicting host-origin of viral samples at the National Centre for Foreign Animal Disease with the Canadian Food Inspection Agency. In addition to this work, we hope to integrate `Triglav` into an end-to-end suite with our previously developed tools, LANDMark and TreeOrdination [@LANDMark, @TreeOrdination], to provide a tool-set which will identify predictive features and explain how these features are used to explain a sample's location in projection and classification.
+
 # Figures
 
 ![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.\label{fig:overview}](Figure 1.png)
