@@ -10,7 +10,7 @@ authors:
   - name: Josip Rudar
     orcid: 0000-0003-0484-8028
     corresponding: true
-    affiliation: 1,3
+    affiliation: "1,3"
   - name: Peter Kruczkiewicz
     orcid: 0000-0002-0044-9460
     affiliation: 3
