@@ -74,7 +74,7 @@ An overview of the API can be found [here](docs/API.md).
 
 Examples of how to use `Triglav` can be found [here](notebooks/README.md).
 
-# Contributing
+## Contributing
 
 To contribute to the development of `Triglav` please read our [contributing guide](docs/CONTRIBUTING.md)
 
