@@ -66,9 +66,17 @@ source venv/bin/activate
 pip install .
 ```
 
-##
+## Interface
 
 An overview of the API can be found [here](docs/API.md).
+
+## Usage and Examples
+
+Examples of how to use `Triglav` can be found [here](notebooks/README.md).
+
+# Contributing
+
+To contribute to the development of `Triglav` please read our [contributing guide](docs/CONTRIBUTING.md)
 
 ## Disclaimer
 
