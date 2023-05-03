@@ -65,7 +65,7 @@ useful interpretation of the data.
 
 # Outline of the Triglav Algorithm
 
-The core assumption behind 'Triglav' is that clusters of features sharing similar values across all samples should be 
+The core assumption behind `Triglav` is that clusters of features sharing similar values across all samples should be 
 discoverable. This is not an unreasonable assumption in biological datasets. For example, different patterns in the abundance of 
 gut bacteria could exist between healthy controls and Crohn's Disease patients [@CD]. To take advantage of this observation, 
 `Triglav` begins by clustering features [@2020SciPy-NMeth]. Then the algorithm randomly selects one feature from each cluster. 
@@ -84,17 +84,29 @@ by calculating the SAGE importance score [@SAGE]. This step is optional. A visua
 
 Currently, this method is being used in projects to discover features capable of predicting host-origin of viral samples at the 
 National Centre for Foreign Animal Disease with the Canadian Food Inspection Agency. In addition to this work, we hope to integrate 
-`Triglav` into an end-to-end suite with our previously developed tools, LANDMark and TreeOrdination [@LANDMark; @TreeOrdination], 
+`Triglav` into an end-to-end suite with our previously developed tools, `LANDMark` and `TreeOrdination` [@LANDMark; @TreeOrdination], 
 to provide a tool-set which will identify predictive features and explain how these features are used to explain a sample's location 
 in projection and classification.
 
 # Acknowledgements
 
+We thank Dr. Terri M. Porter, Dr. Oksana Vernygora, and Hoang Hai Nguyen for their thoughtful review of the manuscript and code. Finally, 
+we thank our reviewers and editor for their time and comments. Their work has resulted in a considerably improved final product. 
+J.R. is supported by funds from the Food from Thought project as part of Canada First Research Excellence Fund. M.H. received funding 
+from the Government of Canada through Genome Canada and Ontario Genomics. G.B.G. is supported by a Natural Sciences and Engineering 
+Research Council of Canada (NSERC) grant (RGPIN-2020-05733).
 
 # Figures
 
-![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster.\label{fig:overview}](Figure 1.png)
+![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix 
+specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution 
+associated with the corresponding shadow cluster. False discovery rate corrections are applied at this step.\label{fig:overview}](Figure 1.png)
 
-![A high-level overview of the second half of the `Triglav` algorithm. The output of this part of the algorithm is a list of selected features. Two different beta-binomial distributions are used to determine if a feature is selected or rejected. These distributions are used by `Triglav` since they can model over-dispersion in zero-counts due to the random selection of features in the first-half of the algorithm. For a feature to be selected, the number of times a significant difference was observed should fall within the critical region determined by the survival function of the first distribution or the cumulative distribution function of the second.\label{fig:overview2}](Figure 2.png)
+![A high-level overview of the second half of the `Triglav` algorithm. The output of this part of the algorithm is a list of 
+selected features. Two different beta-binomial distributions are used to determine if a feature is selected or rejected. These 
+distributions are used by `Triglav` since they can model over-dispersion in zero-counts due to the random selection of features in 
+the first-half of the algorithm. For a feature to be selected, the number of times a significant difference was observed should 
+fall within the critical region determined by the survival function of the first distribution or the cumulative distribution 
+function of the second. A false-discovery rate and Bonferroni correction are applied at this step.\label{fig:overview2}](Figure 2.png)
 
 # References
