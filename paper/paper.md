@@ -15,7 +15,6 @@ authors:
     orcid: 0000-0002-0044-9460
     affiliation: 3
   - name: Oliver Lung
-    orcid: 0000-0002-0044-9460
     affiliation: "3,4"
   - name: G. Brian Golding
     orcid: 0000-0002-7575-0282
