@@ -19,7 +19,7 @@ Here are some resources, provided by GitHub, to help you get started with open s
 
 #### Create a new issue
 
-If you spot a problem, [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments). If an doesn't exist, you can open a new [issue](https://github.com/jrudar/Triglav/issues/new).
+If you spot a problem, [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments). If an doesn't exist, you can open a new [issue](https://github.com/jrudar/Triglav/issues/new). We will try to address your issue in a timely manner.
 
 #### Solve an issue
 
