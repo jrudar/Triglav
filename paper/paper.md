@@ -48,7 +48,7 @@ intelligence approaches, which have already been shown to be useful for feature 
 real-world application of Triglav using an amplicon sequencing dataset containing reads from the 16S rRNA gene of patients
 suffering from Crohn's Disease and healthy controls [@CD]. Using this data we provide an end-to-end workflow demonstrating how `Triglav` 
 can be used to analyze metagenomic data and show that `Triglav` identifies a set of features that are more stable than those
-identified by competing methods [@Stability]. This is important since identifying stable set of predictive features 
+identified by competing methods \autoref{fig:overview2} [@Stability]. This is important since identifying stable set of predictive features 
 is necessary since they may point to useful interpretations of the data.
 
 # Statement of need
@@ -80,10 +80,10 @@ Shapley values are then calculated [@shapley1951notes; @SHAP1; @SHAP2]. This pro
 values associated with each cluster of features and their shadow counterparts. A Wilcoxon signed-rank test is then used to determine if 
 the distribution of Shapley values belonging to each cluster of real features is greater than the corresponding shadow cluster [@wilcoxon]. 
 These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly 
-from its shadow counterpart. An overview is provided in \autoref{fig:overview}. A beta-binomial distribution is then used to determine if 
+from its shadow counterpart. An overview is provided in \autoref{fig:overview2}. A beta-binomial distribution is then used to determine if 
 a feature is to be selected. A second beta-binomial distribution is also used to determine when a feature is to be rejected. Finally, 
 the best feature from each cluster can be optionally discovered by calculating the SAGE importance score [@SAGE]. This step is optional. 
-A visual overview is provided in \autoref{fig:overview2}.
+A visual overview is provided in \autoref{fig:overview3}.
 
 # Ongoing Research
 
@@ -102,19 +102,20 @@ Sciences and Engineering Research Council of Canada (NSERC) grant (RGPIN-2020-05
 
 # Figures
 
-![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix 
-specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution 
-associated with the corresponding shadow cluster. False discovery rate corrections are applied at this step.\label{fig:overview}](Figure 1.png)
+![Results of an analysis of a small amplicon sequencing dataset to which `Triglav` was applied. In (A) SAGE importance scores from
+each of the selected features are shown. Many of the selected features were also detected in Forbed et al. (2018). A clustermap (B)
+of the top features from each cluster can then be plotted. This clustermap clearly visualizes differences in the microbiomes of
+healthy patients (blue) and those suffering from Crohn's Disease (red).\label{fig:overview1}](Figure 1.png)
 
 ![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix 
 specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution 
-associated with the corresponding shadow cluster. False discovery rate corrections are applied at this step.\label{fig:overview}](Figure 2.png)
+associated with the corresponding shadow cluster. False discovery rate corrections are applied at this step.\label{fig:overview2}](Figure 2.png)
 
 ![A high-level overview of the second half of the `Triglav` algorithm. The output of this part of the algorithm is a list of 
 selected features. Two different beta-binomial distributions are used to determine if a feature is selected or rejected. These 
 distributions are used by `Triglav` since they can model over-dispersion in zero-counts due to the random selection of features in 
 the first-half of the algorithm. For a feature to be selected, the number of times a significant difference was observed should 
 fall within the critical region determined by the survival function of the first distribution or the cumulative distribution 
-function of the second. A false-discovery rate and Bonferroni correction are applied at this step.\label{fig:overview2}](Figure 3.png)
+function of the second. A false-discovery rate and Bonferroni correction are applied at this step.\label{fig:overview3}](Figure 3.png)
 
 # References
