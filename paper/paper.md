@@ -103,7 +103,7 @@ Sciences and Engineering Research Council of Canada (NSERC) grant (RGPIN-2020-05
 # Figures
 
 ![Results of an analysis of a small amplicon sequencing dataset to which `Triglav` was applied. In (A) SAGE importance scores from
-each of the selected features are shown. Many of the selected features were also detected in Forbed et al. (2018). A clustermap (B)
+each of the selected features are shown. Many of the selected features were also detected in [@CD]. A clustermap (B)
 of the top features from each cluster can then be plotted. This clustermap clearly visualizes differences in the microbiomes of
 healthy patients (blue) and those suffering from Crohn's Disease (red).\label{fig:overview1}](Figure 1.png)
 
