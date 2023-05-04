@@ -96,6 +96,8 @@ of the `Triglav` class and its methods.
 
     self.sage_values_: SAGE Explanation Object
         A SAGE explanation object created using the set of features in 'selected_'.
+        For a detailed explanation on how to use this object, please visit:
+        https://github.com/iancovert/sage
 
     linkage_matrix_: ndarray
         The SciPy hierarchical clustering encoded as a linkage matrix.

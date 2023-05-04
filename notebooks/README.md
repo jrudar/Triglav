@@ -2,6 +2,6 @@ This directory contains example notebooks for Triglav. The notebooks are organiz
 
 - [Usage Example](01_random_dataset.ipynb) - A notebook that demonstrates how to use Triglav with a randomly generated dataset.
 
-- [Crohn's Disease vs. Healthy Controls](16S_CD_microbiome.ipynb) - A notebook that demonstrates how to use Triglav to find predictive features using medically relevant amplicon sequencing data.
+- [Crohn's Disease vs. Healthy Controls (Stability)](Diseased Gut Analysis/16S_CD_microbiome.ipynb) - A notebook that compares feature stability scores across a range of approaches to `Triglav`.
 
-- [Colon Spatial Variation](16S_healthy.ipynb) - A notebook that demonstrates how to use Triglav to find differences in the microbial communities along the healthy human colon.
+- [Crohn's Disease vs. Healthy Controls (End to End)](16S_end_to_end.ipynb) - A notebook that demonstrates how to use Triglav to find differences in the microbial communities along the healthy human colon.
