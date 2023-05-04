@@ -48,7 +48,7 @@ intelligence approaches, which have already been shown to be useful for feature 
 real-world application of Triglav using an amplicon sequencing dataset containing reads from the 16S rRNA gene of patients
 suffering from Crohn's Disease and healthy controls [@CD]. Using this data we provide an end-to-end workflow demonstrating how `Triglav` 
 can be used to analyze metagenomic data and show that `Triglav` identifies a set of features that are more stable than those
-identified by competing methods \autoref{fig:overview2} [@Stability]. This is important since identifying stable set of predictive features 
+identified by competing methods \autoref{fig:overview1} [@Stability]. This is important since identifying stable set of predictive features 
 is necessary since they may point to useful interpretations of the data.
 
 # Statement of need
