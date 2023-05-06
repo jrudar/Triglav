@@ -21,8 +21,7 @@ jobs:
         miniforge-version: latest
         activate-environment: Triglav
         channel-priority: strict
-        environment-file: pyproject.toml
-        use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+        environment-file: envionment.yml
         use-mamba: true
 
     - name: Install dependencies

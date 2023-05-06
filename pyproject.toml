@@ -1,6 +1,6 @@
 [project]
 name = "triglav"
-version = "1.0.0.a"
+version = "1.0.0a"
 authors = [
     {name = "Josip Rudar", email = "rudarj@uoguelph.ca"},
     {name = "Peter Kruczkiewicz"},
