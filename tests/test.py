@@ -52,5 +52,5 @@ if __name__ == "__main__":
     
     test_df = pd.read_csv(expected_output)
 
-    pd.assert_frame_equal(df, df_expected, check_dtype = False)
+    pd.assert_frame_equal(df, test_df, check_dtype = False)
 
