@@ -66,7 +66,10 @@ redundant features could obfuscate important biological insights since the funct
 not be included in the analysis. The mitigation of this problem was the driving force behind the development of `Triglav`.
 Specifically, we believe that an approach capable of identifying all relevant predictive features using explainable artificial 
 intelligence is needed as it would help ensure that the selected features reflect actual differences, and not the nuances the
-between different sets of training data.
+between different sets of training data. Finally, work such as this is needed since it allows for a generalized way to measure
+differentially abundant species or genes. By pursuing this line of investigation, differential abundance testing will
+no longer rely on the performance of a particular statistical model. Rather, it will be directly tied to the ability of
+a machine learning model to successfully classify a dataset.
 
 # Outline of the Triglav Algorithm
 
@@ -89,7 +92,7 @@ A visual overview is provided in \autoref{fig:overview3}.
 
 Currently, this method is being used in projects to discover features capable of predicting host-origin of viral samples and strain
 specific bacterial markers at the National Centre for Foreign Animal Disease with the Canadian Food Inspection Agency. In addition 
-to this work, we hope to integrate `Triglav` into an end-to-end suite with our previously developed tools, `LANDMark` and 
+to this work, we hope to integrate `Triglav` into an end-to-end suite of software with our previously developed tools, `LANDMark` and 
 `TreeOrdination` [@LANDMark; @TreeOrdination]. Together, this will form the basis of a modern toolset capable of investigating
 the organisms and genes associated with pathogenicity and environmental outcomes.
 
@@ -102,10 +105,11 @@ Sciences and Engineering Research Council of Canada (NSERC) grant (RGPIN-2020-05
 
 # Figures
 
-![Results of an analysis of a small amplicon sequencing dataset to which `Triglav` was applied. In (A) SAGE importance scores from
-each of the selected features are shown. Many of the selected features were also detected in [@CD]. A clustermap (B)
-of the top features from each cluster can then be plotted. This clustermap clearly visualizes differences in the microbiomes of
-healthy patients (blue) and those suffering from Crohn's Disease (red).\label{fig:overview1}](Figure 1.png)
+![Results of an analysis of a small amplicon sequencing dataset to which `Triglav` was applied. Compared to some commonly used
+approaches, there is evidence that the feature sets produced by `Triglav` are stable when different training subsets are used (A). 
+In (B) SAGE importance scores from each of the selected features are shown. Many of the selected features were also detected in 
+[@CD]. A clustermap (C) of the top features from each cluster can then be plotted. This clustermap clearly visualizes differences 
+in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).\label{fig:overview1}](Figure 1.png)
 
 ![A high-level overview of the first half of the `Triglav` algorithm. The output of this part of the algorithm is a binary matrix 
 specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution 
