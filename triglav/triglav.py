@@ -1085,7 +1085,7 @@ class Triglav(TransformerMixin, BaseEstimator):
             stage_2_estimator=self.stage_2_estimator,
             per_class_imp=self.per_class_imp,
             max_iter=self.n_iter,
-            n_iter_fwer = self.n_iter_fwer,
+            n_iter_fwer=self.n_iter_fwer,
             X=X_in,
             y=y_int_,
             alpha=self.alpha,
@@ -1248,14 +1248,10 @@ class Triglav(TransformerMixin, BaseEstimator):
             )
 
         if self.n_iter <= 0:
-            raise ValueError(
-                "The 'max_iter' parameter should be at least one."
-            )
+            raise ValueError("The 'max_iter' parameter should be at least one.")
 
         if self.n_iter_fwer <= 0:
-            raise ValueError(
-                "The 'n_iter_fwer' parameter should be at least one."
-            )
+            raise ValueError("The 'n_iter_fwer' parameter should be at least one.")
 
         if self.n_jobs <= 0:
             raise ValueError(
