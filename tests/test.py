@@ -1,13 +1,10 @@
-
-from triglav import Triglav, ETCProx
+from triglav import Triglav
 
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
 import pandas as pd
-
-import numpy as np
 
 from pathlib import Path
 
