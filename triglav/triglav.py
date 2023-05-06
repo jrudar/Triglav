@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from typing import Union, Tuple, Mapping, List, Type, Set
 
@@ -10,7 +9,6 @@ import sage as sg
 import shap as sh
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
-from numpy.random import PCG64
 from scipy.cluster import hierarchy
 from scipy.stats import wilcoxon, betabinom
 from scipy.spatial.distance import squareform
@@ -22,7 +20,6 @@ from sklearn.ensemble import (
     RandomForestClassifier,
 )
 from sklearn.ensemble._forest import BaseForest
-from sklearn.exceptions import ConvergenceWarning
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.metrics import pairwise_distances
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV

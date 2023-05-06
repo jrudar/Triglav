@@ -31,7 +31,7 @@ if __name__ == "__main__":
                                                         stratify = y)
 
     #Set up Triglav
-    model = Triglav(n_jobs = 10,
+    model = Triglav(n_jobs = 4,
                     verbose = 3,
                     metric = "euclidean",
                     linkage = "ward", 
