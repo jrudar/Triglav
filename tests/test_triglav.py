@@ -39,6 +39,9 @@ def test_transformers_prox():
                                 shuffle = False,
                                 random_state = 0)
 
+    # To prevent negative proportions
+    X = np.abs(X)
+
     # Ensures that the NoScale transformer returns the input
     R = NoScale().fit_transform(X)
 
@@ -48,20 +51,24 @@ def test_transformers_prox():
 
     # Ensures that CLRTransformer returns the CLR Transform of X
     R = pd.DataFrame(CLRTransformer().fit_transform(X))
+
     X_clr = pd.DataFrame(clr(multiplicative_replacement(closure(X))))
     pd.testing.assert_frame_equal(X_clr, R, check_dtype = False)
 
     # Ensures that Scaler returns the closure of X
     R = pd.DataFrame(Scaler().fit_transform(X))
+
     X_closure = pd.DataFrame(closure(X))
     pd.testing.assert_frame_equal(X_closure, R, check_dtype = False)
 
     # Ensures that NoResample returns the input
     R = pd.DataFrame(NoResample().fit_transform(X))
+
     pd.testing.assert_frame_equal(X, R, check_dtype = False)
 
     # Ensure that ETCProx returns a square matrix and symmetric matrixo
     R = ETCProx().transform(X)
+
     assert R.shape[0] == R.shape[1]
     check_symmetric(R)
 
