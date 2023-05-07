@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from typing import Union, Tuple, Mapping, List, Type, Set
 
@@ -10,7 +9,6 @@ import sage as sg
 import shap as sh
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
-from numpy.random import PCG64
 from scipy.cluster import hierarchy
 from scipy.stats import wilcoxon, betabinom
 from scipy.spatial.distance import squareform
@@ -22,7 +20,6 @@ from sklearn.ensemble import (
     RandomForestClassifier,
 )
 from sklearn.ensemble._forest import BaseForest
-from sklearn.exceptions import ConvergenceWarning
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.metrics import pairwise_distances
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
@@ -39,7 +36,7 @@ from imblearn.over_sampling.base import BaseOverSampler
 ##################################################################################
 class NoScale(TransformerMixin, BaseEstimator):
     """
-    No transformation transformer.
+    This function returns the input unchanged.
     """
 
     def __init__(self):
@@ -394,7 +391,7 @@ def get_hits(
 
     S_r = shap_scores(clf, X_resamp, per_class)
 
-    if per_class == True:
+    if per_class:
 
         if S_r.ndim == 2:
 
@@ -1088,7 +1085,7 @@ class Triglav(TransformerMixin, BaseEstimator):
             stage_2_estimator=self.stage_2_estimator,
             per_class_imp=self.per_class_imp,
             max_iter=self.n_iter,
-            n_iter_fwer = self.n_iter_fwer,
+            n_iter_fwer=self.n_iter_fwer,
             X=X_in,
             y=y_int_,
             alpha=self.alpha,
@@ -1251,14 +1248,10 @@ class Triglav(TransformerMixin, BaseEstimator):
             )
 
         if self.n_iter <= 0:
-            raise ValueError(
-                "The 'max_iter' parameter should be at least one."
-            )
+            raise ValueError("The 'max_iter' parameter should be at least one.")
 
         if self.n_iter_fwer <= 0:
-            raise ValueError(
-                "The 'n_iter_fwer' parameter should be at least one."
-            )
+            raise ValueError("The 'n_iter_fwer' parameter should be at least one.")
 
         if self.n_jobs <= 0:
             raise ValueError(
