@@ -391,7 +391,7 @@ def get_hits(
 
     S_r = shap_scores(clf, X_resamp, per_class)
 
-    if per_class == True:
+    if per_class:
 
         if S_r.ndim == 2:
 
