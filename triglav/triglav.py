@@ -36,7 +36,7 @@ from imblearn.over_sampling.base import BaseOverSampler
 ##################################################################################
 class NoScale(TransformerMixin, BaseEstimator):
     """
-    No transformation transformer.
+    This function returns the input unchanged.
     """
 
     def __init__(self):
