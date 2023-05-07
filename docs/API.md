@@ -169,3 +169,74 @@ of the `Triglav` class and its methods.
         dict: A dictionary of data structures computed to render the dendrogram.
         See https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.dendrogram.html
         for more details.
+
+## Class
+
+    class triglav.ETCProx(n_estimators = 1024, min_samples_split = 0.33, n_sets = 5)
+
+### Parameters
+
+    n_estimators: int, default = 1024
+        The number of estimators the ExtraTreesClassifier will use.
+
+    min_samples_split: float, default = 0.33
+        The minimum number of samples to split an internal node.
+
+    n_sets: int, default = 5
+        The number of random datasets to be generated.
+
+### Methods
+
+    fit_transform(X, y, **fit_params)
+        Fits a `ETCProx` class and returns the dissimilarity matrix.
+
+        Parameters:
+
+        X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+        the number of features (taxa, OTUs, ASVs, etc).
+
+        Returns:
+
+        Dissimilarity Matrix: NumPy array of shape (n, n) where 'n' is the
+        the number of features (taxa, OTUs, ASVs, etc)
+
+## Class
+
+    class triglav.NoScale()
+
+    class triglav.Scaler()
+
+    class triglav.CLRTransformer()
+
+    class triglav.NoResample()
+
+### Parameters
+
+    None
+
+### Attributes
+
+    zero_samps: bool, ndarray of shape (n_samples,)
+        The mask of the all rows which sum to zeroest features from each cluster.
+        This is only returned for the Scaler() and CLRTransformer() classes.
+
+### Methods
+
+    fit_transform(X, y = None, **fit_params)
+        Fits a transformer method.
+
+        Parameters:
+
+        X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+        the number of features (taxa, OTUs, ASVs, etc).
+
+        Returns:
+
+        X_Transformed: NumPy array of shape (m, n) where 'm' is the number of 
+        samples and 'n' the number of features (taxa, OTUs, ASVs, etc).'
+
+        NoScale will return X
+        Scaler will return the closure of X (all rows sum to one, X must be non-negative)
+        CLRTransformer will return the CLR Transform of X (X must be non-negative)
+        NoResample will return X
+
