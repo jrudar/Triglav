@@ -78,10 +78,6 @@ Examples of how to use `Triglav` can be found [here](notebooks/README.md).
 
 To contribute to the development of `Triglav` please read our [contributing guide](docs/CONTRIBUTING.md)
 
-## Disclaimer
-
-This code is still in development. USE AT YOUR OWN RISK.
-
 ## References
 
 Coming Soon
