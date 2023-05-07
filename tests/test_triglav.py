@@ -31,7 +31,7 @@ def test_triglav():
                                                         stratify = y)
 
     #Set up Triglav
-    model = Triglav(n_jobs = 4,
+    model = Triglav(n_jobs = 5,
                     verbose = 3,
                     metric = "euclidean",
                     linkage = "ward", 
@@ -49,5 +49,5 @@ def test_triglav():
     
     test_df = pd.read_csv(expected_output)
 
-    pd.assert_frame_equal(df, test_df, check_dtype = False)
+    pd.testing.assert_frame_equal(df, test_df, check_dtype = False)
 
