@@ -33,7 +33,7 @@ classifiers = [
 ]
 dependencies = [
     "matplotlib >= 3.4.3",
-    "numpy = 1.23.5",
+    "numpy == 1.23.5",
     "scikit-learn >= 1.0.1",
     "scikit-bio >= 0.5.8",
     "statsmodels >= 0.12.0",
