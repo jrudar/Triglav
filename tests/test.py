@@ -10,44 +10,46 @@ from pathlib import Path
 
 if __name__ == "__main__":
 
-    dirpath = Path(__file__).parent
+    def test_triglav():
 
-    expected_output = dirpath / 'data/expected_output.csv'
+        dirpath = Path(__file__).parent
 
-    #Create the dataset
-    X, y = make_classification(n_samples = 200,
-                               n_features = 20,
-                               n_informative = 5,
-                               n_redundant = 2,
-                               n_repeated = 0,
-                               n_classes = 2,
-                               shuffle = False,
-                               random_state = 0)
+        expected_output = dirpath / 'data/expected_output.csv'
 
-    #Split into train and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, 
-                                                        test_size = 0.2, 
-                                                        random_state = 0, 
-                                                        stratify = y)
+        #Create the dataset
+        X, y = make_classification(n_samples = 200,
+                                   n_features = 20,
+                                   n_informative = 5,
+                                   n_redundant = 2,
+                                   n_repeated = 0,
+                                   n_classes = 2,
+                                   shuffle = False,
+                                   random_state = 0)
 
-    #Set up Triglav
-    model = Triglav(n_jobs = 4,
-                    verbose = 3,
-                    metric = "euclidean",
-                    linkage = "ward", 
-                    criterion="maxclust",
-                    thresh = 9,
-                    transformer=StandardScaler())
+        #Split into train and test sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, 
+                                                            test_size = 0.2, 
+                                                            random_state = 0, 
+                                                            stratify = y)
 
-    #Identify predictive features
-    model.fit(X_train, y_train)
+        #Set up Triglav
+        model = Triglav(n_jobs = 4,
+                        verbose = 3,
+                        metric = "euclidean",
+                        linkage = "ward", 
+                        criterion="maxclust",
+                        thresh = 9,
+                        transformer=StandardScaler())
 
-    features_selected = model.selected_
-    features_best = model.selected_best_
+        #Identify predictive features
+        model.fit(X_train, y_train)
 
-    df = pd.DataFrame(data = [features_best, features_selected], index = ["Selected Best", "Selected"], columns = [i for i in range(0, 20)])
+        features_selected = model.selected_
+        features_best = model.selected_best_
+
+        df = pd.DataFrame(data = [features_best, features_selected], index = ["Selected Best", "Selected"], columns = [i for i in range(0, 20)])
     
-    test_df = pd.read_csv(expected_output)
+        test_df = pd.read_csv(expected_output)
 
-    pd.assert_frame_equal(df, test_df, check_dtype = False)
+        pd.assert_frame_equal(df, test_df, check_dtype = False)
 
