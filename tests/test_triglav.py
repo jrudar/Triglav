@@ -3,6 +3,7 @@ from triglav import Triglav
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.ensemble import ExtraTreesClassifier
 
 import pandas as pd
 
@@ -33,6 +34,7 @@ def test_triglav():
     #Set up Triglav
     model = Triglav(n_jobs = 5,
                     verbose = 3,
+                    estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 7),
                     metric = "euclidean",
                     linkage = "ward", 
                     criterion="maxclust",
@@ -45,9 +47,9 @@ def test_triglav():
     features_selected = model.selected_
     features_best = model.selected_best_
 
-    df = pd.DataFrame(data = [features_best, features_selected], index = ["Selected Best", "Selected"], columns = [i for i in range(0, 20)])
+    df = pd.DataFrame(data = [features_best, features_selected], index = ["Selected Best", "Selected"], columns = [str(i) for i in range(0, 20)])
     
-    test_df = pd.read_csv(expected_output)
+    test_df = pd.read_csv(expected_output, index_col = 0)
 
     pd.testing.assert_frame_equal(df, test_df, check_dtype = False)
 
