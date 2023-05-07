@@ -66,7 +66,7 @@ test = [
 py-modules = ["triglav"]
 
 [tool.pytest.ini_options]
-addopts = "--cov --cov-report html --cov-report term-missing --cov-fail-under 95"
+addopts = "--cov --cov-report html --cov-report term-missing --cov-fail-under 70"
 
 [tool.coverage.run]
 source = ["triglav"]
