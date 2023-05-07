@@ -58,7 +58,8 @@ dev = [
     "wheel",
 ]
 test = [
-    "pytest"
+    "pytest",
+    "pytest-cov"
 ]
 
 [tool.setuptools]
