@@ -10,11 +10,11 @@ from pathlib import Path
 
 if __name__ == "__main__":
 
+    dirpath = Path(__file__).parent
+
+    expected_output = dirpath / 'data/expected_output.csv'
+
     def test_triglav():
-
-        dirpath = Path(__file__).parent
-
-        expected_output = dirpath / 'data/expected_output.csv'
 
         #Create the dataset
         X, y = make_classification(n_samples = 200,
