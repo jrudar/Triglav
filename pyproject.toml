@@ -1,6 +1,6 @@
 [project]
 name = "triglav"
-version = "1.0.0a"
+version = "1.0.0"
 authors = [
     {name = "Josip Rudar", email = "rudarj@uoguelph.ca"},
     {name = "Peter Kruczkiewicz"},
@@ -17,9 +17,9 @@ keywords = [
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<=3.11"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Ecology :: Multivariate Statistics :: Feature Selection :: Stability Selection",
 ]

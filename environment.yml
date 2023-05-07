@@ -1,6 +1,7 @@
 name: Triglav-Env
 
 dependencies:
+    - python >=3.8,<=3.11
     - pip
     - pip:
         - matplotlib >= 3.4.3
