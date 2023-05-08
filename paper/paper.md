@@ -78,8 +78,8 @@ A Wilcoxon signed-rank test is then used to determine if the distribution of Sha
 These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart. 
 An overview is provided in \autoref{fig:overview2}. 
 A beta-binomial distribution is then used to determine if a feature should be selected, and a second beta-binomial distribution is used to determine if a feature should be rejected. 
-Finally, the best feature from each cluster can be optionally discovered by calculating the SAGE importance score [@SAGE]. 
-A visual overview is provided in \autoref{fig:overview3}.
+Finally, the best feature from each cluster can be discovered by calculating SAGE importance scores [@SAGE]. 
+A visual overview of the `Triglav` algorithm is provided in \autoref{fig:overview3}.
 
 ![A high-level overview of the first half of the `Triglav` algorithm for producing a binary matrix specifying if the distribution of Shapley values associated with a cluster of features differs significantly from the distribution associated with the corresponding shadow cluster. 
 False discovery rate corrections are applied at this step.
