@@ -48,13 +48,6 @@ Further, we demonstrate how `Triglav` can be used to identify a stable set of fe
 With this metagenomic data, we show that `Triglav` identifies a set of features more stable than those identified by competing methods (see \autoref{fig:overview1}) [@Stability]. 
 By identifying stable sets of predictive features, `Triglav` may lead to useful interpretations of the underlying data.
 
-![`Triglav` analysis identifies a stable set of features from a real-world dataset of 16S rRNA amplicon sequencing data from patients suffering from Crohn's Disease and healthy controls [@CD].
-**A**, a comparison of `Triglav` performance against several common approaches.
-**B**, SAGE importance scores from each of the selected features.
-Many of the selected features were also detected in @CD.
-**C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
-\label{fig:overview1}](Figure 1.png)
-
 # Statement of need
 
 As datasets grow in complexity and features, analysis becomes increasingly difficult due to noise and irrelevant features in the data.
@@ -65,6 +58,13 @@ With complex modern genomic and metagenomic data, it is often important to ident
 However, the removal of redundant features could obfuscate important biological insights since the function of particular organisms or genes may not be included in downstream analyses. 
 Therefore, `Triglav` was developed to implement an approach capable of identifying all relevant predictive features using explainable artificial intelligence to ensure that the selected features reflect actual differences and not the nuances the between different sets of training data, while allowing for a generalized way to measure differentially abundant species or genes in biological datasets. 
 With the `Triglav` approach, differential abundance testing would no longer rely on the performance of a particular statistical model, but rather, the ability of a machine learning model to successfully classify a dataset.
+
+![`Triglav` analysis identifies a stable set of features from a real-world dataset of 16S rRNA amplicon sequencing data from patients suffering from Crohn's Disease and healthy controls [@CD].
+**A**, a comparison of `Triglav` performance against several common approaches.
+**B**, SAGE importance scores from each of the selected features.
+Many of the selected features were also detected in @CD.
+**C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
+\label{fig:overview1}](Figure 1.png)
 
 # Outline of the Triglav Algorithm
 
