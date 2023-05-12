@@ -76,7 +76,7 @@ a machine learning model to successfully classify a dataset.
 **B**, SAGE importance scores from each of the selected features. Higher scores are indicative of more important features.
 Many of the selected features were also detected in @CD.
 **C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
-\label{fig:overview1}](Figure 1.png)
+\label{fig:overview1}](Figure 1.svg)
 
 # Outline of the Triglav Algorithm
 
@@ -96,7 +96,7 @@ and the process begins again. Finally, the best feature from each cluster can be
 This process is repeated to generate a distribution of Shapley values. A Wilcoxon signed-rank test is used to determine when a cluster's Shapley values are greater than the shadow counterpart (C and D). Beta-binomial distributions
 are then used to determine if a feature is to be kept, rejected, or remain tentative (E). Kept and rejected features are removed and steps B-E are repeated using the remaining tentative features. 
 False discovery rate corrections are applied at step C and E.
-\label{fig:overview2}](Figure 2.png)
+\label{fig:overview2}](Figure 2.svg)
 
 # Ongoing Research
 
