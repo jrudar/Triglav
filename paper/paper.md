@@ -84,7 +84,7 @@ and the process begins again (\autoref{fig:overview2}E). Finally, the best featu
 This process is repeated to generate a distribution of Shapley values. A Wilcoxon signed-rank test is used to determine when a cluster's Shapley values are greater than the shadow counterpart (C and D). Beta-binomial distributions
 are then used to determine if a feature is to be kept, rejected, or remain tentative (E). Kept and rejected features are removed, and B-E are repeated using the remaining tentative features. 
 False discovery rate corrections are applied at step C and E.
-\label{fig:overview2}](Figure 2.svg)
+\label{fig:overview2}](Figure 2.png)
 
 # Ongoing Research
 
