@@ -38,60 +38,73 @@ bibliography: paper.bib
 
 # Summary
 
-`Triglav` is a Python package implementing a feature selection algorithm applicable for identification of relevant and stable sets of features in high-dimensional tabular datasets. 
-Like Boruta [@JSSv036i11], it uses an iterative approach to identify a stable and predictive subset of features which, in biological data, can be genes, operational taxonomic units, single nucleotide variants, etc. 
-Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
-of impactful clusters over many iterations determines if a cluster of features is retained or discarded. 
-This approach is particularly beneficial since the identification of impactful clusters (and features) is accomplished using explainable artificial 
-intelligence approaches shown to be useful for feature selection [@Thanh-Hai2021]. 
-Further, we demonstrate how `Triglav` can be used to identify a stable set of features from a real-world dataset of 16S rRNA amplicon sequencing data from patients suffering from Crohn's Disease and healthy controls [@CD]. 
-With this metagenomic data, we show that `Triglav` identifies a set of features more stable than those identified by competing methods (see \autoref{fig:overview1}) [@Stability]. 
-By identifying stable sets of predictive features, `Triglav` may lead to useful interpretations of the underlying data.
+`Triglav`, named after the Slavic god of divination, is a Python package which can be used to identify relevant and stable sets 
+of features in high-dimensional datasets. `Triglav` is a wrapper feature selection algorithm applicable to tabular datasets. 
+`Triglav`, which was inspired by Boruta [@JSSv036i11], uses an iterative approach to identify a stable and predictive subset 
+of features. Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
+of impactful clusters over many iterations determines if a cluster of features is retained or discarded. This approach is 
+particularly beneficial since the identification of impactful clusters (and features) is accomplished using explainable artificial 
+intelligence approaches, which have already been shown to be useful for feature selection [@Thanh-Hai2021]. Further, we show a
+real-world application of Triglav using an amplicon sequencing dataset containing reads from the 16S rRNA gene of patients
+suffering from Crohn's Disease and healthy controls [@CD]. Using this data we provide an end-to-end workflow demonstrating how `Triglav` 
+can be used to analyze metagenomic data and show that `Triglav` identifies a set of features that are more stable than those
+identified by competing methods \autoref{fig:overview1} [@Stability]. This is important since identifying stable set of predictive features 
+is necessary since they may point to useful interpretations of the data.
 
 # Statement of need
 
-As datasets grow in complexity and features, analysis becomes increasingly difficult due to noise and irrelevant features in the data.
-To tackle this problem, feature selection methods are often used to reduce the complexity of the data while identifying the most relevant features given the task at hand [@JSSv036i11]. 
-With genomic and metagenomic datasets, this task has become increasingly important since generating models of the data and an understanding of how these models work directly improves our knowledge of complex systems such as disease process, viral transmission, and how ecosystems change over time [@acharya_multi-view_2020]. 
-Many feature selection approaches tend to remove redundant features, however, this may not necessarily be optimal for biological datasets. 
-With complex modern genomic and metagenomic data, it is often important to identify the relevant functional changes occurring in microbiomes or networks of genes [@lowabdmicrobiome; @SingleCell]. 
-However, the removal of redundant features could obfuscate important biological insights since the function of particular organisms or genes may not be included in downstream analyses. 
-Therefore, `Triglav` was developed to implement an approach capable of identifying all relevant predictive features using explainable artificial intelligence to ensure that the selected features reflect actual differences and not the nuances the between different sets of training data, while allowing for a generalized way to measure differentially abundant species or genes in biological datasets. 
-With the `Triglav` approach, differential abundance testing would no longer rely on the performance of a particular statistical model, but rather, the ability of a machine learning model to successfully classify a dataset.
+Modern data has become increasingly complex, with the number of generated features growing larger for many datasets. 
+This increase can make the analysis of this data difficult due to the inclusion of noise and other irrelevant features.
+To tackle this problem, feature selection methods are often used to reduce the complexity of the data while identifying 
+the most relevant features given the task at hand. With genomic and metagenomic datasets this task has become increasingly 
+important since generating models of the data and an understanding of how these models work directly improves our 
+knowledge of complex systems such as disease process, viral transmission, and how ecosystems change over time. While most 
+feature selection approaches tend to remove redundant features, this may not necessarily be what is best in the case of 
+biological data. Modern genomic and metagenomic data is complex and often it is important to identify the relevant functional 
+changes which occur in these communities or network of genes [@lowabdmicrobiome; @SingleCell]. Therefore, the removal of 
+redundant features could obfuscate important biological insights since the function of a particular organisms or gene would 
+not be included in the analysis. The mitigation of this problem was the driving force behind the development of `Triglav`.
+Specifically, we believe that an approach capable of identifying all relevant predictive features using explainable artificial 
+intelligence is needed as it would help ensure that the selected features reflect actual differences, and not the nuances the
+between different sets of training data. Finally, work such as this is needed since it allows for a generalized way to measure
+differentially abundant species or genes. By pursuing this line of investigation, differential abundance testing will
+no longer rely on the performance of a particular statistical model. Rather, it will be directly tied to the ability of
+a machine learning model to successfully classify a dataset.
 
 ![`Triglav` analysis identifies a stable set of features from a real-world dataset of 16S rRNA amplicon sequencing data from patients suffering from Crohn's Disease and healthy controls [@CD].
 **A**, a comparison of `Triglav` performance against several common approaches.
 **B**, SAGE importance scores from each of the selected features. Higher scores are indicative of more important features.
 Many of the selected features were also detected in @CD.
 **C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
-\label{fig:overview1}](Figure 1.png)
+\label{fig:overview1}](Figure 1.svg)
 
 # Outline of the Triglav Algorithm
 
 The core assumption behind `Triglav` is that clusters of impactful features sharing similar pattern of values across all samples should be discoverable. 
 Since this is not an unreasonable assumption for biological datasets, different patterns, for example, in the abundance of gut bacterial species could exist between healthy controls and Crohn's Disease patients [@CD]. 
-To take advantage of this observation, `Triglav` begins by clustering features (\autoref{fig:overview2}A) [@2020SciPy-NMeth] and then randomly selecting one feature from each cluster. 
+To take advantage of this observation, `Triglav` begins by clustering features (\autoref{fig:overview2}A) [@2020SciPy-NMeth] followed by the random selectiion of one feature from each cluster. 
 A set of shadow features, which are copies of the original set of selected features where the marginal distributions of each feature has been permuted, are then created (\autoref{fig:overview2}B) [@JSSv036i11]. 
 The shadow data is then combined with the original data and used to train a classification model [@JSSv036i11] and calculate Shapley values (\autoref{fig:overview2}C) [@shapley1951notes; @SHAP1; @SHAP2]. 
 This process is repeated a number of times to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts. 
 For each iteration of the `Triglav` algorithm a Wilcoxon signed-rank test is then used to determine if the distribution of Shapley values associated to each cluster of real features is greater than the corresponding shadow cluster (Figure 2C) [@wilcoxon]. 
-A binary matrix, where '1' represents a cluster of features differing significantly from its shadow counterpart, is then appended to at end of each iteration (\autoref{fig:overview2}D). 
-A beta-binomial distribution is then used to determine if a feature should be selected. A second beta-binomial distribution, using a different parameterization, is used to determine if a feature should be rejected (\autoref{fig:overview2}E).
-By using two differently parameterized beta-binomial distributions, `Triglav` has a better ability to control the selection and rejection of features. Once a feature is considered significant at this stage, it is removed from the pool of tentative features
-and the process begins again (\autoref{fig:overview2}E). Finally, the best feature from each cluster can be discovered by calculating SAGE importance scores [@SAGE]. This step is optional but can be done to remove potential redundancies between features. 
+A binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart is then appended to at end of each iteration (\autoref{fig:overview2}D). 
+A beta-binomial distribution then uses this matrix to determine if a cluster should be selected while a second beta-binomial distribution, using a different parameterization, is used to determine if a cluster should be rejected (\autoref{fig:overview2}E).
+By using two differently parameterized beta-binomial distributions, `Triglav` has a better ability to control the selection and rejection of clusters. Once a cluster a significant hit is detected, the cluster is removed from the pool of tentative clusters
+and the process begins again. Finally, the best feature from each cluster can be discovered by calculating SAGE importance scores [@SAGE]. This step is optional but can be done to remove potential redundancies between features. 
 
-![A high-level overview of the `Triglav` algorithm. (A) Features are clustered. A number of Extra Trees Classifiers are then trained on a randomly selected set of features and their shadow counterparts from each cluster (B).
+![A high-level overview of the `Triglav` algorithm. (A) Features are clustered. A number of machine learning models are trained on randomly selected set of features and their shadow counterparts from each cluster (B).
 This process is repeated to generate a distribution of Shapley values. A Wilcoxon signed-rank test is used to determine when a cluster's Shapley values are greater than the shadow counterpart (C and D). Beta-binomial distributions
-are then used to determine if a feature is to be kept, rejected, or remain tentative (E). Kept and rejected features are removed, and B-E are repeated using the remaining tentative features. 
+are then used to determine if a feature is to be kept, rejected, or remain tentative (E). Kept and rejected features are removed and steps B-E are repeated using the remaining tentative features. 
 False discovery rate corrections are applied at step C and E.
-\label{fig:overview2}](Figure 2.png)
+\label{fig:overview2}](Figure 2.svg)
 
 # Ongoing Research
 
-Currently, this method is being used in projects to discover features capable of predicting virus host-origin and strain
-specific bacterial markers at the National Centre for Foreign Animal Disease with the Canadian Food Inspection Agency. 
-Additionally, we plan to integrate `Triglav` into an end-to-end software suite with our previously developed tools, `LANDMark` and `TreeOrdination` [@LANDMark; @TreeOrdination]. 
-Together, this will form the basis of a modern toolset capable of investigating the organisms and genes associated with pathogenicity and environmental outcomes.
+Currently, this method is being used in projects to discover features capable of predicting host-origin of viral samples and strain
+specific bacterial markers at the National Centre for Foreign Animal Disease with the Canadian Food Inspection Agency. In addition 
+to this work, we hope to integrate `Triglav` into an end-to-end suite of software with our previously developed tools, `LANDMark` and 
+`TreeOrdination` [@LANDMark; @TreeOrdination]. Together, this will form the basis of a modern toolset capable of investigating
+the organisms and genes associated with pathogenicity and environmental outcomes.
 
 # Acknowledgements
 
