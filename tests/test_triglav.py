@@ -118,6 +118,6 @@ def test_triglav_basic():
 
     print("Triglav Test Complete.")
 
-
+test_transformers_prox()
 test_triglav_basic()
 
