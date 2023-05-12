@@ -30,7 +30,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Ecology :: Multivariate Statistics :: Feature Selection :: Stability Selection",
 ]
 dependencies = [
     "matplotlib >= 3.4.3",
