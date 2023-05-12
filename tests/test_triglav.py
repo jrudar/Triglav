@@ -119,6 +119,5 @@ def test_triglav_basic():
     print("Triglav Test Complete.")
 
 
-    
-
+test_triglav_basic()
 
