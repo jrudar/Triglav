@@ -71,22 +71,32 @@ differentially abundant species or genes. By pursuing this line of investigation
 no longer rely on the performance of a particular statistical model. Rather, it will be directly tied to the ability of
 a machine learning model to successfully classify a dataset.
 
+![`Triglav` analysis identifies a stable set of features from a real-world dataset of 16S rRNA amplicon sequencing data from patients suffering from Crohn's Disease and healthy controls [@CD].
+**A**, a comparison of `Triglav` performance against several common approaches.
+**B**, SAGE importance scores from each of the selected features. Higher scores are indicative of more important features.
+Many of the selected features were also detected in @CD.
+**C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
+\label{fig:overview1}](Figure 1.png)
+
 # Outline of the Triglav Algorithm
 
-The core assumption behind `Triglav` is that clusters of impactful features sharing similar pattern of values across all samples 
-should be discoverable. This is not an unreasonable assumption in biological datasets. For example, different patterns in the 
-abundance of gut bacteria could exist between healthy controls and Crohn's Disease patients [@CD]. To take advantage of this 
-observation, `Triglav` begins by clustering features [@2020SciPy-NMeth]. Then the algorithm randomly selects one feature from each 
-cluster. A set of shadow features are then created by randomly sampling without replacement from the distribution of each selected 
-feature [@JSSv036i11]. The shadow data is then combined with the original data and is used to train a classification model [@JSSv036i11]. 
-Shapley values are then calculated [@shapley1951notes; @SHAP1; @SHAP2]. This process is repeated to generate a distribution of Shapley 
-values associated with each cluster of features and their shadow counterparts. A Wilcoxon signed-rank test is then used to determine if 
-the distribution of Shapley values belonging to each cluster of real features is greater than the corresponding shadow cluster [@wilcoxon]. 
-These steps are repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly 
-from its shadow counterpart. An overview is provided in \autoref{fig:overview2}. A beta-binomial distribution is then used to determine if 
-a feature is to be selected. A second beta-binomial distribution is also used to determine when a feature is to be rejected. Finally, 
-the best feature from each cluster can be optionally discovered by calculating the SAGE importance score [@SAGE]. This step is optional. 
-A visual overview is provided in \autoref{fig:overview3}.
+The core assumption behind `Triglav` is that clusters of impactful features sharing similar pattern of values across all samples should be discoverable. 
+Since this is not an unreasonable assumption for biological datasets, different patterns, for example, in the abundance of gut bacterial species could exist between healthy controls and Crohn's Disease patients [@CD]. 
+To take advantage of this observation, `Triglav` begins by clustering features (\autoref{fig:overview2}A) [@2020SciPy-NMeth] followed by the random selectiion of one feature from each cluster. 
+A set of shadow features, which are copies of the original set of selected features where the marginal distributions of each feature has been permuted, are then created (\autoref{fig:overview2}B) [@JSSv036i11]. 
+The shadow data is then combined with the original data and used to train a classification model [@JSSv036i11] and calculate Shapley values (\autoref{fig:overview2}C) [@shapley1951notes; @SHAP1; @SHAP2]. 
+This process is repeated a number of times to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts. 
+For each iteration of the `Triglav` algorithm a Wilcoxon signed-rank test is then used to determine if the distribution of Shapley values associated to each cluster of real features is greater than the corresponding shadow cluster (Figure 2C) [@wilcoxon]. 
+A binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart is then appended to at end of each iteration (\autoref{fig:overview2}D). 
+A beta-binomial distribution then uses this matrix to determine if a cluster should be selected while a second beta-binomial distribution, using a different parameterization, is used to determine if a cluster should be rejected (\autoref{fig:overview2}E).
+By using two differently parameterized beta-binomial distributions, `Triglav` has a better ability to control the selection and rejection of clusters. Once a cluster a significant hit is detected, the cluster is removed from the pool of tentative clusters
+and the process begins again. Finally, the best feature from each cluster can be discovered by calculating SAGE importance scores [@SAGE]. This step is optional but can be done to remove potential redundancies between features. 
+
+![A high-level overview of the `Triglav` algorithm. (A) Features are clustered. A number of machine learning models are trained on randomly selected set of features and their shadow counterparts from each cluster (B).
+This process is repeated to generate a distribution of Shapley values. A Wilcoxon signed-rank test is used to determine when a cluster's Shapley values are greater than the shadow counterpart (C and D). Beta-binomial distributions
+are then used to determine if a feature is to be kept, rejected, or remain tentative (E). Kept and rejected features are removed and steps B-E are repeated using the remaining tentative features. 
+False discovery rate corrections are applied at step C and E.
+\label{fig:overview2}](Figure 2.png)
 
 # Ongoing Research
 
