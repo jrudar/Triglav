@@ -35,7 +35,7 @@ affiliations:
 date: 2 May 2023
 bibliography: paper.bib
 ---
- 
+
 # Summary
 
 `Triglav`, named after the Slavic god of divination, is a Python package which can be used to identify relevant and stable sets 
