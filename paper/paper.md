@@ -39,7 +39,7 @@ bibliography: paper.bib
 # Summary
 
 `Triglav`, named after the Slavic god of divination, is a Python package which can be used to identify relevant and stable sets 
-of features in high-dimensional datasets. `Triglav`, a wrapper feature selection algorithm inspired by Boruta [@JSSv036i11], can be applied to tabular datasets and 
+of features in high-dimensional datasets. `Triglav`, a wrapper feature selection algorithm inspired by Boruta and BorutaShap [@JSSv036i11; @BortuaShap], can be applied to tabular datasets and 
 uses an iterative approach to identify a stable and predictive subset 
 of features. In biological data these features can include, but are not limited to, genes, species, and single nucleotide variants. Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
 of impactful clusters over many iterations determines if a cluster of features is retained or discarded. Shapley values, which assess the
@@ -76,7 +76,7 @@ a machine learning model to successfully classify a dataset.
 **B**, SAGE importance scores from each of the selected features. Higher scores are indicative of more important features.
 Many of the selected features were also detected in @CD.
 **C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
-\label{fig:overview1}](Figure 1.svg)
+\label{fig:overview1}](Figure 1.pdf)
 
 # Outline of the Triglav Algorithm
 
@@ -95,7 +95,7 @@ and the process begins again. Finally, the best feature from each cluster can be
 (C) This process is repeated to generate a distribution of Shapley values and a Wilcoxon signed-rank test is used to determine if a cluster's Shapley values are greater than the shadow counterpart (C and D). Beta-binomial distributions
 are then used to determine if a feature is to be kept, rejected, or remain tentative (E). Kept and rejected features are removed and steps B-E are repeated using the remaining tentative features. 
 False discovery rate corrections are applied at step C and E.
-\label{fig:overview2}](Figure 2.svg)
+\label{fig:overview2}](Figure 2.pdf)
 
 # Ongoing Research
 
