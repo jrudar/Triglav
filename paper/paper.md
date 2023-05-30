@@ -40,7 +40,7 @@ bibliography: paper.bib
 
 `Triglav` is a Python package implementing a feature selection algorithm applicable for identification 
 of relevant and stable sets of features in high-dimensional tabular datasets. Like `Boruta` and `BorutaShap`, it uses an iterative approach to 
-identify a stable and predictive subset of features. [@JSSv036i11; @BortuaShap; @Stability].
+identify a stable and predictive subset of features [@JSSv036i11; @BortuaShap; @Stability].
 Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
 of impactful clusters over many iterations determines if a cluster of features is retained or discarded. 
 This approach is particularly beneficial since the identification of impactful clusters (and features) is accomplished using explainable artificial 
@@ -89,10 +89,14 @@ using a different parameterization, is used to determine if a cluster should be 
 By using two differently parameterized beta-binomial distributions, `Triglav` has a better ability to control the selection and rejection of clusters. Once a significant hit is detected, the cluster is removed from the pool of tentative clusters
 and the process begins again. Finally, if there is interest in removing potentially redundant features, the best feature from each cluster can be discovered by calculating SAGE importance scores [@SAGE]. 
 
-![A high-level overview of the `Triglav` algorithm. (A) Features are clustered. (B) A number of Extremely Randomized Tree classifiers are trained on randomly selected subsets of features and their shadow counterparts.
-(C) This process is repeated to generate a distribution of Shapley values. (D) A Wilcoxon signed-rank test is used to determine if a cluster's Shapley values are greater than the shadow counterpart. (E) Beta-binomial distributions
-are then used to determine if a feature is to be kept, rejected, or remain tentative. Kept and rejected features are removed and steps B-E are repeated using the remaining tentative features. 
-False discovery rate corrections are applied at step D and E.
+![A high-level overview of the `Triglav` algorithm. 
+**A** Features are clustered.
+**B** A number of Extremely Randomized Tree classifiers are trained on randomly selected subsets of features and their shadow counterparts.
+**C** This process is repeated to generate a distribution of Shapley values. 
+**D** A Wilcoxon signed-rank test is used to determine if a cluster's Shapley values are greater than the shadow counterpart. 
+**E** Beta-binomial distributions are then used to determine if a feature is to be kept, rejected, or remain tentative. 
+Kept and rejected features are removed and steps **B-E** are repeated using the remaining tentative features. 
+False discovery rate corrections are applied at step **D** and **E**.
 \label{fig:overview2}](Figure 2.pdf)
 
 # Ongoing Research
