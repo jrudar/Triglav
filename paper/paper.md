@@ -38,7 +38,7 @@ bibliography: paper.bib
 
 # Summary
 
-`Triglav`, named after the Slavic god of divination, is a Python package implementing a feature selection algorithm applicable for identification 
+`Triglav` is a Python package implementing a feature selection algorithm applicable for identification 
 of relevant and stable sets of features in high-dimensional tabular datasets. Like `Boruta` and `BorutaShap`, it uses an iterative approach to 
 identify a stable and predictive subset of features. [@JSSv036i11; @BortuaShap; @Stability].
 Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
