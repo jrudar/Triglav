@@ -80,7 +80,7 @@ This is not an unreasonable assumption for biological datasets. For example, pat
 To take advantage of this observation,`Triglav` begins by clustering features using a user-supplied dissimilarity measure (\autoref{fig:overview2}A) [@2020SciPy-NMeth]. The feature clustering
 is only performed once and the result is used in subsequent steps.
 Following clustering, one feature from each cluster is randomly selected. A set of shadow features is then constructed by sampling without replacement from the marginal distribution of each real feature (\autoref{fig:overview2}B) [@JSSv036i11].
-The real and shadow data is combined and used to train an Extremely Randomized Tree classifier. Shapley values are then calculated (\autoref{fig:overview2}C) [@ETC; @BortuaShap; @JSSv036i11; @shapley1951notes; @SHAP1; @SHAP2]. 
+The real and shadow data is combined and used to train an Extremely Randomized Tree classifier in the default implementation of `Triglav`. Shapley values are then calculated (\autoref{fig:overview2}C) [@ETC; @BortuaShap; @JSSv036i11; @shapley1951notes; @SHAP1; @SHAP2]. 
 This process is repeated to generate a distribution of Shapley values associated with each cluster of features and their shadow counterparts.
 A Wilcoxon signed-rank test is then used to determine if the distribution of Shapley values belonging to each cluster of real features is greater than those from the corresponding shadow cluster (Figure 2C) [@wilcoxon]. 
 These steps are then repeated multiple times, generating a binary matrix where '1' represents a cluster of features differing significantly from its shadow counterpart (\autoref{fig:overview2}D).
