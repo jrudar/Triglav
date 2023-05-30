@@ -90,11 +90,11 @@ By using two differently parameterized beta-binomial distributions, `Triglav` ha
 and the process begins again. Finally, if there is interest in removing potentially redundant features, the best feature from each cluster can be discovered by calculating SAGE importance scores [@SAGE]. 
 
 ![A high-level overview of the `Triglav` algorithm. 
-**A** Features are clustered.
-**B** A number of Extremely Randomized Tree classifiers are trained on randomly selected subsets of features and their shadow counterparts.
-**C** This process is repeated to generate a distribution of Shapley values. 
-**D** A Wilcoxon signed-rank test is used to determine if a cluster's Shapley values are greater than the shadow counterpart. 
-**E** Beta-binomial distributions are then used to determine if a feature is to be kept, rejected, or remain tentative. 
+**A**, Features are clustered.
+**B**, A number of Extremely Randomized Tree classifiers are trained on randomly selected subsets of features and their shadow counterparts.
+**C**, This process is repeated to generate a distribution of Shapley values. 
+**D**, A Wilcoxon signed-rank test is used to determine if a cluster's Shapley values are greater than the shadow counterpart. 
+**E**, Beta-binomial distributions are then used to determine if a feature is to be kept, rejected, or remain tentative. 
 Kept and rejected features are removed and steps **B-E** are repeated using the remaining tentative features. 
 False discovery rate corrections are applied at step **D** and **E**.
 \label{fig:overview2}](Figure 2.pdf)
