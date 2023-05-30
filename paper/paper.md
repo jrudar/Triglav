@@ -41,7 +41,7 @@ bibliography: paper.bib
 `Triglav`, named after the Slavic god of divination, is a Python package which can be used to identify relevant and stable sets 
 of features in high-dimensional datasets. `Triglav`, a wrapper feature selection algorithm inspired by Boruta and BorutaShap [@JSSv036i11; @BortuaShap], can be applied to tabular datasets and 
 uses an iterative approach to identify a stable and predictive subset 
-of features. In biological data these features can include, but are not limited to, genes, species, and single nucleotide variants. Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
+of features [@Stability]. In biological data these features can include, but are not limited to, genes, species, and single nucleotide variants. Briefly, an ensemble approach is used to identify impactful clusters of features and the consistent identification 
 of impactful clusters over many iterations determines if a cluster of features is retained or discarded. Shapley values, which assess the
 marginal contribution of a feature across coalitions of features, are used to quantify the impact of each feature cluster [@shapley1951notes; @SHAP1; @SHAP2] and have 
 been shown to be useful for feature selection in biological data [@Thanh-Hai2021]. Further, we provide an end-to-end example of a
