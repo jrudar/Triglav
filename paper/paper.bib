@@ -147,16 +147,25 @@ url={https://doi.org/10.1007/978-3-030-76620-7_6}
   doi={10.1038/s42256-019-0138-9}
 }
 
-@incollection{SHAP2,
-title = {A Unified Approach to Interpreting Model Predictions},
+@inproceedings{SHAP2,
 author = {Lundberg, Scott M. and Lee, Su-In},
-booktitle = {Advances in Neural Information Processing Systems 30},
-editor = {I. Guyon and U. V. Luxburg and S. Bengio and H. Wallach and R. Fergus and S. Vishwanathan and R. Garnett},
-pages = {4765--4774},
+title = {A Unified Approach to Interpreting Model Predictions},
 year = {2017},
+<<<<<<< HEAD
+isbn = {9781510860964},
+publisher = {Curran Associates Inc.},
+address = {Red Hook, NY, USA},
+abstract = {Understanding why a model makes a certain prediction can be as crucial as the prediction's accuracy in many applications. However, the highest accuracy for large modern datasets is often achieved by complex models that even experts struggle to interpret, such as ensemble or deep learning models, creating a tension between accuracy and interpretability. In response, various methods have recently been proposed to help users interpret the predictions of complex models, but it is often unclear how these methods are related and when one method is preferable over another. To address this problem, we present a unified framework for interpreting predictions, SHAP (SHapley Additive exPlanations). SHAP assigns each feature an importance value for a particular prediction. Its novel components include: (1) the identification of a new class of additive feature importance measures, and (2) theoretical results showing there is a unique solution in this class with a set of desirable properties. The new class unifies six existing methods, notable because several recent methods in the class lack the proposed desirable properties. Based on insights from this unification, we present new methods that show improved computational performance and/or better consistency with human intuition than previous approaches.},
+booktitle = {Proceedings of the 31st International Conference on Neural Information Processing Systems},
+pages = {4768–4777},
+numpages = {10},
+location = {Long Beach, California, USA},
+series = {NIPS'17}
+=======
 publisher = {Curran Associates, Inc.},
 url = {http://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions.pdf},
 doi = {10.5555/3295222.3295230}
+>>>>>>> 547f40ead8c0aae28e5d4fa906cfcc47861e2955
 }
 
 @article{wilcoxon,
@@ -212,16 +221,18 @@ eprint = {https://journals.asm.org/doi/pdf/10.1128/spectrum.02065-22}
 }
 
 @inproceedings{SAGE,
- author = {Covert, Ian and Lundberg, Scott M and Lee, Su-In},
- booktitle = {Advances in Neural Information Processing Systems},
- editor = {H. Larochelle and M. Ranzato and R. Hadsell and M.F. Balcan and H. Lin},
- pages = {17212--17223},
- publisher = {Curran Associates, Inc.},
- title = {Understanding Global Feature Contributions With Additive Importance Measures},
- url = {https://proceedings.neurips.cc/paper_files/paper/2020/file/c7bf0b7c1a86d5eb3be2c722cf2cf746-Paper.pdf},
- volume = {33},
- year = {2020},
- doi = {10.5555/3495724.3497168}
+author = {Covert, Ian C. and Lundberg, Scott and Lee, Su-In},
+title = {Understanding Global Feature Contributions with Additive Importance Measures},
+year = {2020},
+isbn = {9781713829546},
+publisher = {Curran Associates Inc.},
+address = {Red Hook, NY, USA},
+abstract = {Understanding the inner workings of complex machine learning models is a longstanding problem and most recent research has focused on local interpretability. To assess the role of individual input features in a global sense, we explore the perspective of defining feature importance through the predictive power associated with each feature. We introduce two notions of predictive power (model-based and universal) and formalize this approach with a framework of additive importance measures, which unifies numerous methods in the literature. We then propose SAGE, a model-agnostic method that quantifies predictive power while accounting for feature interactions. Our experiments show that SAGE can be calculated efficiently and that it assigns more accurate importance values than other methods.},
+booktitle = {Proceedings of the 34th International Conference on Neural Information Processing Systems},
+articleno = {1444},
+numpages = {12},
+location = {Vancouver, BC, Canada},
+series = {NIPS'20}
 }
 
 @article{Stability,
