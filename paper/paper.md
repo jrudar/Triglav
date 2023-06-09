@@ -67,7 +67,7 @@ With the `Triglav` approach, these measurements would no longer rely on the perf
 machine learning model to successfully classify a dataset.
 
 ![`Triglav` analysis identifies a stable set of features from a real-world dataset of 16S rRNA amplicon sequencing data from patients suffering from Crohn's Disease and healthy controls [@CD].
-**A**, a comparison of `Triglav` performance against several common approaches.
+**A**, a comparison of `Triglav`'s feature stability performance against several common approaches.
 **B**, SAGE importance scores from each of the selected features.
 Many of the selected features were also detected in @CD.
 **C**, a clustermap of the top features from each cluster visualizing differences in the microbiomes of healthy patients (blue) and those suffering from Crohn's Disease (red).
