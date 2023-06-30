@@ -799,6 +799,7 @@ def select_features(
     ],
     estimator: Type[ClassifierMixin, BaseEstimator],
     stage_2_estimator: Type[ClassifierMixin, BaseEstimator],
+    mode: str,
     per_class_imp: bool,
     X: np.ndarray,
     max_iter: int,
@@ -903,10 +904,15 @@ def select_features(
 
     # Stage 2: Determine the best feature from each cluster using Sage
     if run_stage_2:
+        if mode == "regression":
+            sage_loss = "mse"
+            y_enc = y
+
+        else:
+            y_enc = LabelEncoder().fit_transform(y)
+
         if verbose > 0:
             print("Stage Two: Identifying best features from each cluster...")
-
-        y_enc = LabelEncoder().fit_transform(y)
 
         X_red, zero_samps = scale_features(X_red, transformer)
 
@@ -915,7 +921,7 @@ def select_features(
         model = stage_2_estimator.fit(X_red[:, S_tmp], y_enc[zero_samps])
 
         I = sg.MarginalImputer(model, X_red[:, S_tmp])
-        E = sg.SignEstimator(I)
+        E = sg.SignEstimator(I, loss = sage_loss)
         sage = E(X_red[:, S_tmp], y_enc[zero_samps])
 
         S_vals = sage.values
@@ -953,9 +959,9 @@ def select_features(
 
 
 ##################################################################################
-# Triglav Class
+# Triglav Class - Multilabel Classifier / Regression
 ##################################################################################
-class Triglav(TransformerMixin, BaseEstimator):
+class TriglavSingleTask(TransformerMixin, BaseEstimator):
     """
     Triglav is a feature selection algorithm that uses a hierarchical
     clustering algorithm to group features into clusters. The
@@ -974,6 +980,9 @@ class Triglav(TransformerMixin, BaseEstimator):
     stage_2_estimator: default = ExtraTreesClassifier(512)
         The estimator used to calculate SAGE values. Only used if the
         'run_stage_2' is set to True.
+    mode: str, default = "classify"
+        Will be used to select the loss function when calculating
+        SAGE values. Options are "classify" or "regression".
     per_class_imp: bool, default = False
         Specifies if importance scores are calculated globally or per
         class. Note, per class importance scores are calculated in a
@@ -1017,6 +1026,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         sampler=NoResample(),
         estimator=ExtraTreesClassifier(512, bootstrap=True),
         stage_2_estimator=ExtraTreesClassifier(512),
+        mode = "classify",
         per_class_imp: bool = False,
         n_iter: int = 40,
         n_iter_fwer: int = 11,
@@ -1038,6 +1048,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.sampler = sampler
         self.estimator = estimator
         self.stage_2_estimator = stage_2_estimator
+        self.mode = mode
         self.per_class_imp = per_class_imp
         self.n_iter = n_iter
         self.n_iter_fwer = n_iter_fwer
@@ -1052,7 +1063,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.verbose = verbose
         self.n_jobs = n_jobs
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> Triglav:
+    def fit(self, X: np.ndarray, y: np.ndarray) -> TriglavSingleTask:
         """
         Inputs:
 
@@ -1083,6 +1094,7 @@ class Triglav(TransformerMixin, BaseEstimator):
             sampler=self.sampler,
             estimator=self.estimator,
             stage_2_estimator=self.stage_2_estimator,
+            mode = self.mode,
             per_class_imp=self.per_class_imp,
             max_iter=self.n_iter,
             n_iter_fwer=self.n_iter_fwer,
@@ -1282,4 +1294,9 @@ class Triglav(TransformerMixin, BaseEstimator):
         if type(self.per_class_imp) is not bool:
             raise ValueError("The 'per_class_imp' parameter should be True or False.")
 
+        if self.mode != "classify" or self.mode != "regression":
+            raise ValueError("The 'mode' parameter should be set to 'classify' or 'regression'."
+            )
+
         return X_in, y_in
+    

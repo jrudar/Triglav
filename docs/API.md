@@ -5,7 +5,7 @@ of the `Triglav` class and its methods.
 
 ## Class
 
-    class triglav.Triglav(transformer = NoScale(), sampler = NoResample(), estimator = ExtraTreesClassifier(512, bootstrap = True),
+    class triglav.TriglavSingleTask(transformer = NoScale(), sampler = NoResample(), estimator = ExtraTreesClassifier(512, bootstrap = True),
                   stage_2_estimator = ExtraTreesClassifier(512, bootstrap = True), per_class_imp = False,
                   n_iter = 40, n_iter_fwer = 11, p_1 = 0.65, p_2 = 0.30, metric = "correlation", linkage = "complete",
                   thresh = 2.0, criterion = "distance", run_stage_2 = True, verbose = 0, n_jobs = 10)
@@ -30,6 +30,10 @@ of the `Triglav` class and its methods.
         The estimator used to calculate SAGE values. Only used if the
         'run_stage_2' is set to True.
 	
+    mode: str, default = "classify"
+        Will be used to select the loss function when calculating
+        SAGE values. Options are "classify" or "regression".
+
     per_class_imp: bool, default = False
         Specifies if importance scores are calculated globally or per
         class. Note, per class importance scores are calculated in a
