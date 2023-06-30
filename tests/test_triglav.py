@@ -1,4 +1,4 @@
-from triglav import Triglav, ETCProx, CLRTransformer, NoScale, Scaler, NoResample
+from triglav import TriglavSingleTask, ETCProx, CLRTransformer, NoScale, Scaler, NoResample
 
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
@@ -95,7 +95,7 @@ def test_triglav_basic():
                                                         stratify = y)
 
     #Set up Triglav
-    model = Triglav(n_jobs = 5,
+    model = TriglavSingleTask(n_jobs = 5,
                     verbose = 3,
                     estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 7),
                     metric = "euclidean",

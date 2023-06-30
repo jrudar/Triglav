@@ -2,6 +2,6 @@
 This module implements Triglav
 """
 
-from .triglav import TriglavSingle, CLRTransformer, Scaler, NoScale, ETCProx, NoResample
+from .triglav import TriglavSingleTask, CLRTransformer, Scaler, NoScale, ETCProx, NoResample
 
-__all__ = ['TriglavSingle', 'CLRTransformer', 'Scaler', 'NoScale', 'ETCProx', 'NoResample']
+__all__ = ['TriglavSingleTask', 'CLRTransformer', 'Scaler', 'NoScale', 'ETCProx', 'NoResample']
