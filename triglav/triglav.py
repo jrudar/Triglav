@@ -56,7 +56,9 @@ class Scaler(TransformerMixin, BaseEstimator):
     def fit_transform(self, X, y=None, **fit_params):
         self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
 
-        return closure(X[self.zero_samps])
+        row_sums = np.sum(X, axis = 1)[self.zero_samps]
+
+        return X[self.zero_samps]/np.sum(X[self.zero_samps], axis = 1)[:,None]
 
 
 ##################################################################################
