@@ -12,7 +12,6 @@ from matplotlib import pyplot as plt
 from scipy.cluster import hierarchy
 from scipy.stats import wilcoxon, betabinom
 from scipy.spatial.distance import squareform
-from skbio.stats.composition import multiplicative_replacement, closure, clr
 from sklearn.base import TransformerMixin, BaseEstimator, clone, ClassifierMixin
 from sklearn.ensemble import (
     ExtraTreesClassifier,
@@ -58,20 +57,6 @@ class Scaler(TransformerMixin, BaseEstimator):
         self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
 
         return closure(X[self.zero_samps])
-
-
-class CLRTransformer(TransformerMixin, BaseEstimator):
-    """
-    Transforms data using the Centered-Log Ratio transformation.
-    """
-
-    def __init__(self):
-        pass
-
-    def fit_transform(self, X, y=None, **fit_params):
-        self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
-
-        return clr(multiplicative_replacement(closure(X[self.zero_samps])))
 
 
 ##################################################################################
