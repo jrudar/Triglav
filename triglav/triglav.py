@@ -223,7 +223,6 @@ def scale_features(
     """
 
     if type(transformer) == NoScale or type(transformer) not in [
-        CLRTransformer,
         Scaler,
     ]:
         zero_samps = np.ones(shape=(X.shape[0],), dtype=bool)
