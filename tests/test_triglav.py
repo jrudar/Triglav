@@ -1,11 +1,9 @@
-from triglav import Triglav, ETCProx, CLRTransformer, NoScale, Scaler, NoResample
+from triglav import Triglav, ETCProx, NoScale, Scaler, NoResample
 
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import ExtraTreesClassifier
-
-from skbio.stats.composition import clr, closure, multiplicative_replacement
 
 import pandas as pd
 
@@ -48,12 +46,6 @@ def test_transformers_prox():
     X = pd.DataFrame(X)
     R = pd.DataFrame(R)
     pd.testing.assert_frame_equal(X, R, check_dtype = False)
-
-    # Ensures that CLRTransformer returns the CLR Transform of X
-    R = pd.DataFrame(CLRTransformer().fit_transform(X))
-
-    X_clr = pd.DataFrame(clr(multiplicative_replacement(closure(X))))
-    pd.testing.assert_frame_equal(X_clr, R, check_dtype = False)
 
     # Ensures that Scaler returns the closure of X
     R = pd.DataFrame(Scaler().fit_transform(X))
