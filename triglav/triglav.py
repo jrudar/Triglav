@@ -48,6 +48,12 @@ class NoScale(TransformerMixin, BaseEstimator):
 class Scaler(TransformerMixin, BaseEstimator):
     """
     Scales each row so that the sum of each row is equal to one.
+
+    X: Numpy array of shape (m, n) where m is the number of samples
+       and n the number of features.
+
+    Returns: A Numpy array of shape (p, n), where p <= m. This array
+             contains all samples with non-zero entries in each column.
     """
 
     def __init__(self):
