@@ -50,7 +50,8 @@ def test_transformers_prox():
     # Ensures that Scaler returns the closure of X
     R = pd.DataFrame(Scaler().fit_transform(X))
 
-    X_closure = pd.DataFrame(closure(X))
+    X_closure = X / X.sum(axis = 1)[:, None]
+    X_closure = pd.DataFrame(X_closure)
     pd.testing.assert_frame_equal(X_closure, R, check_dtype = False)
 
     # Ensures that NoResample returns the input
