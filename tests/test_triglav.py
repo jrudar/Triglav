@@ -48,7 +48,7 @@ def test_transformers_prox():
     pd.testing.assert_frame_equal(X, R, check_dtype = False)
 
     # Ensures that Scaler returns the closure of X
-    R = pd.DataFrame(Scaler().fit_transform(X))
+    R = pd.DataFrame(Scaler().fit_transform(X.values))
 
     X_closure = X.values / X.values.sum(axis = 1)[:, None]
     X_closure = pd.DataFrame(X_closure)
