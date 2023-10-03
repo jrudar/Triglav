@@ -1,7 +1,6 @@
 # Triglav - Feature Selection Using Iterative Refinement
 
 [![CI](https://github.com/jrudar/Triglav/actions/workflows/ci.yml/badge.svg)](https://github.com/jrudar/Triglav/actions/workflows/ci.yml)
-[![Draft PDF](https://github.com/jrudar/Triglav/actions/workflows/draft-pdf.yml/badge.svg)](https://github.com/jrudar/Triglav/actions/workflows/draft-pdf.yml)
 
 ## Overview
 
