@@ -6,7 +6,7 @@ requires = ["hatchling"]
 name = "triglav"
 version = "1.0.6"
 authors = [
-    {name = "Josip Rudar", email = "rudarj@uoguelph.ca"},
+    {name = "Josip Rudar", email = "joe.rudar@inspection.gc.ca"},
     {name = "Peter Kruczkiewicz"},
     {name = "G. Brian Golding"},
     {name = "Oliver Lung"},
