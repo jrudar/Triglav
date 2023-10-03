@@ -21,7 +21,6 @@ jobs:
         miniforge-version: latest
         activate-environment: Triglav
         channel-priority: strict
-        environment-file: environment.yml
         use-mamba: true
 
     - name: Install dependencies
