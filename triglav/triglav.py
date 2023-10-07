@@ -139,14 +139,14 @@ class NoResample(TransformerMixin, BaseEstimator):
 
 
 ##################################################################################
-# Utility Classes - PSO
+# Utility Classes - SO Problem
 ##################################################################################
 def comb_score(y_true, y_pred, **kwargs):
 
     score_ba = balanced_accuracy_score(y_true, y_pred)
     score_f1 = f1_score(y_true, y_pred, average = "weighted")
 
-    score = (score_ba + score_f1) * 0.5
+    score = (0.85*score_ba) + (0.15*score_f1)
 
     return score
 

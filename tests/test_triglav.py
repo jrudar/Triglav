@@ -111,6 +111,12 @@ def test_triglav_basic():
 
     pd.testing.assert_frame_equal(df, test_df, check_dtype = False)
 
+    from sklearn.metrics import balanced_accuracy_score
+    s1 = ExtraTreesClassifier(512).fit(X_train[:, model.selected_], y_train).predict(X_test[:, model.selected_])
+    s2 = ExtraTreesClassifier(512).fit(X_train[:, model.selected_best_], y_train).predict(X_test[:, model.selected_best_])
+
+    print(balanced_accuracy_score(y_test, s1), balanced_accuracy_score(y_test, s2))
+
     print("Triglav Test Complete.")
 
 test_transformers_prox()
