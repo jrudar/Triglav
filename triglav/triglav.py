@@ -921,13 +921,18 @@ def select_features(
             H_arr = H_arr[:, idx]
             IDX = {x: i for i, x in enumerate(T_idx)}
 
-        if verbose > 0:
+        if verbose > 0 and ITERATION >= n_iter_fwer:
             print(
                 f"Round {ITERATION:d} "
                 f"/ Tentative (Accepted): {len(F_accepted)} "
                 f"/ Tentative (Not Accepted): {len(F_tentative)} "
                 f"/ Rejected: {len(F_rejected)}"
             )
+
+        else:
+            print(f"Round {ITERATION:d} "
+                  f"/ Burn-in Phase... "
+                  )
 
     S = []
     rev_cluster_id = {}
@@ -947,7 +952,7 @@ def select_features(
     S_1 = nZVF.inverse_transform([S1s])[0]
     S_1 = np.where(S_1 > 0, True, False)
 
-    # Stage 2: Determine the best feature from each cluster using PSO
+    # Stage 2: Determine the best feature from each cluster using SO
     if run_stage_2:
         if verbose > 0:
             print("Stage Two: Identifying best features from each cluster...")
@@ -957,7 +962,7 @@ def select_features(
         S_tmp = nZVF.transform([S_1])[0]
 
         P = ModelSO(X_red[:, S_tmp], y[zero_samps], stage_2_estimator, alpha = alpha_2)
-        T = Task(P, max_iters = max_iter_sage_2)
+        T = Task(P, max_iters = max_iter_stage_2)
         A = HarrisHawksOptimization(population_size = pop_size, levy = levy)
         best_features, best_fitness = A.run(T)
 
