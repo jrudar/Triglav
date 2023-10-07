@@ -5,7 +5,6 @@ from typing import Union, Tuple, Mapping, List, Type, Set
 
 import matplotlib.axes
 import numpy as np
-import sage as sg
 import shap as sh
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
@@ -18,16 +17,21 @@ from sklearn.ensemble import (
     HistGradientBoostingClassifier,
     RandomForestClassifier,
 )
+from sklearn.model_selection import cross_val_score
 from sklearn.ensemble._forest import BaseForest
 from sklearn.feature_selection import VarianceThreshold
-from sklearn.metrics import pairwise_distances
+from sklearn.metrics import pairwise_distances, balanced_accuracy_score, f1_score, make_scorer
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils import check_X_y, resample
 from sklearn.utils.validation import check_is_fitted
 from statsmodels.stats.multitest import multipletests
 from imblearn.under_sampling.base import BaseCleaningSampler, BaseUnderSampler
 from imblearn.over_sampling.base import BaseOverSampler
+
+from niapy.problems import Problem
+from niapy.task import Task
+from niapy.algorithms.basic import ArtificialBeeColonyAlgorithm
 
 
 ##################################################################################
@@ -132,6 +136,52 @@ class NoResample(TransformerMixin, BaseEstimator):
     def fit_transform(self, X, y=None, **fit_params):
 
         return X
+
+
+##################################################################################
+# Utility Classes - PSO
+##################################################################################
+def comb_score(y_true, y_pred, **kwargs):
+
+    score_ba = balanced_accuracy_score(y_true, y_pred)
+    score_f1 = f1_score(y_true, y_pred, average = "weighted")
+
+    score = (score_ba + score_f1) * 0.5
+
+    return score
+
+class ModelPSO(Problem):
+    """
+    Performs PSO to select features
+    """
+
+    def __init__(self, X_train, y_train, model, alpha = 0.99):
+        
+        super().__init__(dimension=X_train.shape[1], lower=0, upper=1)
+
+        self.X_train = X_train
+        self.y_train = y_train
+        self.alpha = alpha
+        self.model = model
+
+    def _evaluate(self, x):
+
+        selected = x > 0.5
+        num_selected = selected.sum()
+        if num_selected == 0:
+            return 1.0
+
+        accuracy = cross_val_score(self.model,
+                                   self.X_train[:, selected],
+                                   self.y_train,
+                                   cv = 2).mean()
+
+        score = 1 - accuracy
+
+        num_features = self.X_train.shape[1]
+
+        return self.alpha * score + (1 - self.alpha) * (num_selected / num_features)
+
 
 
 ##################################################################################
@@ -893,38 +943,25 @@ def select_features(
     S_1 = nZVF.inverse_transform([S1s])[0]
     S_1 = np.where(S_1 > 0, True, False)
 
-    # Stage 2: Determine the best feature from each cluster using Sage
+    # Stage 2: Determine the best feature from each cluster using PSO
     if run_stage_2:
         if verbose > 0:
             print("Stage Two: Identifying best features from each cluster...")
-
-        y_enc = LabelEncoder().fit_transform(y)
 
         X_red, zero_samps = scale_features(X_red, transformer)
 
         S_tmp = nZVF.transform([S_1])[0]
 
-        model = stage_2_estimator.fit(X_red[:, S_tmp], y_enc[zero_samps])
+        P = ModelPSO(X_red[:, S_tmp], y[zero_samps], stage_2_estimator)
+        T = Task(P, max_iters = 100)
+        A = ArtificialBeeColonyAlgorithm(population_size = 50)
+        best_features, best_fitness = A.run(T)
 
-        I = sg.MarginalImputer(model, X_red[:, S_tmp])
-        E = sg.SignEstimator(I)
-        sage = E(X_red[:, S_tmp], y_enc[zero_samps])
+        S_2 = []
+        for ix, f_val in enumerate(best_features):
+            if f_val > 0.5:
+                S_2.append(S[ix])
 
-        S_vals = sage.values
-
-        best_in_clus = {}
-        for ix, f_val in enumerate(S_vals):
-            F_id = S[ix]
-            C = rev_cluster_id[F_id]
-
-            if (
-                C in best_in_clus
-                and f_val > best_in_clus[C][1]
-                or C not in best_in_clus
-            ):
-                best_in_clus[C] = (F_id, f_val)
-
-        S_2 = [v[0] for _, v in best_in_clus.items()]
         S_2.sort()
         S_2 = np.asarray(S_2)
 
@@ -941,7 +978,7 @@ def select_features(
         if run_stage_2:
             print(f"Final Set of Best Features Contains {str(S_2.sum())} Features.")
 
-    return (S_1, S_2, sage, D) if run_stage_2 else (S_1, None, None, D)
+    return (S_1, S_2, T, D) if run_stage_2 else (S_1, None, None, D)
 
 
 ##################################################################################
@@ -990,8 +1027,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         The threshold or max number of clusters.
     criterion: str, default = "distance"
         The method used to form flat clusters. The available methods
-        include: inconsistent, distance, maxclust, monocrit,
-        maxclust_monocrit.
+        include: distance, maxclust.
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
     run_stage_2: bool, default = True
@@ -1068,7 +1104,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         (
             self.selected_,
             self.selected_best_,
-            self.sage_values_,
+            self.task_opt_,
             self.linkage_matrix_,
         ) = select_features(
             transformer=self.transformer,
@@ -1190,11 +1226,8 @@ class Triglav(TransformerMixin, BaseEstimator):
     def _check_params(self, X, y):
 
         crit_set = {
-            "inconsistent",
             "distance",
             "maxclust",
-            "monocrit",
-            "maxclust_monocrit",
         }
 
         link_set = {"single", "complete", "ward", "average", "centroid"}

@@ -4,6 +4,7 @@ from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.svm import LinearSVC
 
 import pandas as pd
 
@@ -88,9 +89,10 @@ def test_triglav_basic():
                                                         stratify = y)
 
     #Set up Triglav
-    model = Triglav(n_jobs = 5,
+    model = Triglav(n_jobs = 8,
                     verbose = 3,
                     estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 7),
+                    stage_2_estimator = LinearSVC(),
                     metric = "euclidean",
                     linkage = "ward", 
                     criterion="maxclust",
@@ -111,6 +113,6 @@ def test_triglav_basic():
 
     print("Triglav Test Complete.")
 
-test_transformers_prox()
+#test_transformers_prox()
 test_triglav_basic()
 
