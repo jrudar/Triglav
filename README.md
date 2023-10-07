@@ -29,8 +29,11 @@ modifications:
    to the 'n_iter_fwer' parameter. For a cluster to be rejected a similar round
    of reasoning applies. Clusters that are not rejected remain tentative.
 
-4) After the iterative refinement stage SAGE scores could be used to select
-   the best feature from each cluster.
+4) After the iterative refinement a swarm intelligence algorithm, harris hawks
+   optimization, is used to select the most informative feature subset. This
+   procedure mimics the hunting strategies of harris hawks to find the minimum
+   value of a function. In this case, the optimization strategy is used to find
+   the subset of features which minimizes classification error.
 
 While this method may not produce all features important for classification,
 it does have some nice properties. First of all, by using an Extremely 

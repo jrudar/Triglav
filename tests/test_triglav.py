@@ -109,7 +109,7 @@ def test_triglav_basic():
     
     test_df = pd.read_csv(expected_output, index_col = 0)
 
-    pd.testing.assert_frame_equal(df.transpose()["Selected"], test_df.transpose()["Selected"], check_dtype = False)
+    pd.testing.assert_frame_equal(df, test_df, check_dtype = False)
 
     print("Triglav Test Complete.")
 

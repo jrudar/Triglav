@@ -31,7 +31,7 @@ from imblearn.over_sampling.base import BaseOverSampler
 
 from niapy.problems import Problem
 from niapy.task import Task
-from niapy.algorithms.basic import ArtificialBeeColonyAlgorithm
+from niapy.algorithms.basic import HarrisHawksOptimization
 
 
 ##################################################################################
@@ -150,12 +150,12 @@ def comb_score(y_true, y_pred, **kwargs):
 
     return score
 
-class ModelPSO(Problem):
+class ModelSO(Problem):
     """
     Performs PSO to select features
     """
 
-    def __init__(self, X_train, y_train, model, alpha = 0.99):
+    def __init__(self, X_train, y_train, model, alpha):
         
         super().__init__(dimension=X_train.shape[1], lower=0, upper=1)
 
@@ -856,6 +856,10 @@ def select_features(
     verbose: int,
     n_jobs: int,
     run_stage_2: bool,
+    max_iter_stage_2: int,
+    pop_size: int,
+    levy: float,
+    alpha_2: float
 ):
     """
     Function to run each iteration of the feature selection process.
@@ -952,9 +956,9 @@ def select_features(
 
         S_tmp = nZVF.transform([S_1])[0]
 
-        P = ModelPSO(X_red[:, S_tmp], y[zero_samps], stage_2_estimator)
-        T = Task(P, max_iters = 100)
-        A = ArtificialBeeColonyAlgorithm(population_size = 50)
+        P = ModelSO(X_red[:, S_tmp], y[zero_samps], stage_2_estimator, alpha = alpha_2)
+        T = Task(P, max_iters = max_iter_sage_2)
+        A = HarrisHawksOptimization(population_size = pop_size, levy = levy)
         best_features, best_fitness = A.run(T)
 
         S_2 = []
@@ -1031,8 +1035,19 @@ class Triglav(TransformerMixin, BaseEstimator):
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
     run_stage_2: bool, default = True
-        This stage will determine the best feature from each of the
-        selected clusters by calculating SAGE values.
+        This stage will determine the best feature subset using
+        the harris hawks (HHO) algorithm.
+    max_iter_stage_2: int, default = 100
+        The maximum number of iterations the HHO algorithm will
+        run.
+    pop_size: int, default = 30
+        The population size.
+    levy: float, default = 0.01
+        Controls how quickly the HHO algorithm converges
+        to a local or global minimum.
+    alpha_2: float, default = 0.99
+        The weight used to balance model generalization or
+        number of features selected by the HHO algorithm.
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
     n_jobs: int, default = 10
@@ -1056,6 +1071,10 @@ class Triglav(TransformerMixin, BaseEstimator):
         criterion: str = "distance",
         alpha: float = 0.05,
         run_stage_2: bool = True,
+        max_iter_stage_2: int = 100,
+        pop_size: int = 30,
+        levy: float = 0.01,
+        alpha_2: float = 0.99,
         verbose: int = 0,
         n_jobs: int = 10,
     ):
@@ -1077,6 +1096,10 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.criterion = criterion
         self.alpha = alpha
         self.run_stage_2 = run_stage_2
+        self.max_iter_stage_2 = max_iter_stage_2
+        self.pop_size = pop_size
+        self.levy = levy
+        self.alpha_2 = alpha_2
         self.verbose = verbose
         self.n_jobs = n_jobs
 
@@ -1125,6 +1148,10 @@ class Triglav(TransformerMixin, BaseEstimator):
             criterion=self.criterion,
             verbose=self.verbose,
             run_stage_2=self.run_stage_2,
+            max_iter_stage_2=self.max_iter_stage_2,
+            pop_size=self.pop_size,
+            levy=self.levy,
+            alpha_2=self.alpha_2,
             n_jobs=self.n_jobs,
         )
 
@@ -1303,6 +1330,18 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         if type(self.run_stage_2) is not bool:
             raise ValueError("The 'run_stage_2' parameter should be True or False.")
+
+        if type(self.max_iter_stage_2) is not int or (type(self.max_iter_stage_2) is int and self.max_iter_stage_2 <= 0):
+            raise ValueError("The 'max_iter_stage_2' parameter should be an integer and greater than 0.")
+
+        if type(self.pop_size) is not int or (type(self.pop_size) is int and self.pop_size <= 0):
+            raise ValueError("The 'pop_size' parameter should be an integer and greater than 0.")
+
+        if type(self.levy) is not float or (type(self.levy) is float and self.levy <= 0):
+            raise ValueError("The 'levy' parameter should be a float and greater than 0.")
+
+        if type(self.alpha_2) is not float or (type(self.alpha_2) is float and self.alpha_2 <= 0):
+            raise ValueError("The 'alpha_2' parameter should be a float and greater than 0.")
 
         if type(self.per_class_imp) is not bool:
             raise ValueError("The 'per_class_imp' parameter should be True or False.")
