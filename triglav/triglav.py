@@ -1293,7 +1293,7 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         if self.criterion not in crit_set:
             raise ValueError(
-                "The 'criterion' parameter should be one supported in 'scipy.hierarchy'."
+                "The 'criterion' parameter should be 'distance' or 'maxclust'."
             )
 
         if self.linkage not in link_set:
