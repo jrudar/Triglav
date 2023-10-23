@@ -89,14 +89,26 @@ def test_triglav_basic():
                                                         stratify = y)
 
     #Set up Triglav
-    model = Triglav(n_jobs = 8,
+    model = Triglav(n_jobs = 4,
                     verbose = 3,
-                    estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 7),
-                    stage_2_estimator = LinearSVC(),
+                    n_iter_fwer=5,
+                    estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 4),
+                    stage_2_estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 4),
                     metric = "euclidean",
-                    linkage = "ward", 
-                    criterion="maxclust",
+                    criterion = "maxclust",
                     thresh = 9,
+                    run_stage_2="auto",
+                    transformer=StandardScaler())
+
+    model = Triglav(n_jobs = 4,
+                    verbose = 3,
+                    n_iter_fwer=5,
+                    estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 4),
+                    stage_2_estimator = ExtraTreesClassifier(512, bootstrap = True, max_depth = 4),
+                    metric = "euclidean",
+                    criterion = "maxclust",
+                    thresh = 9,
+                    run_stage_2="mms",
                     transformer=StandardScaler())
 
     #Identify predictive features
@@ -105,20 +117,22 @@ def test_triglav_basic():
     features_selected = model.selected_
     features_best = model.selected_best_
 
-    df = pd.DataFrame(data = [features_best, features_selected], index = ["Selected Best", "Selected"], columns = [str(i) for i in range(0, 20)])
-    
-    test_df = pd.read_csv(expected_output, index_col = 0)
-
-    pd.testing.assert_frame_equal(df, test_df, check_dtype = False)
-
     from sklearn.metrics import balanced_accuracy_score
     s1 = ExtraTreesClassifier(512).fit(X_train[:, model.selected_], y_train).predict(X_test[:, model.selected_])
     s2 = ExtraTreesClassifier(512).fit(X_train[:, model.selected_best_], y_train).predict(X_test[:, model.selected_best_])
 
-    print(balanced_accuracy_score(y_test, s1), balanced_accuracy_score(y_test, s2))
+    s1, s2 = balanced_accuracy_score(y_test, s1), balanced_accuracy_score(y_test, s2)
+
+    assert s1 > 0.75
+
+    assert s2 > 0.75
 
     print("Triglav Test Complete.")
 
-test_transformers_prox()
-test_triglav_basic()
+
+if __name__ == "__main__":
+    test_transformers_prox()
+    test_triglav_basic()
+
+    fdfd = 5
 

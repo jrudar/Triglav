@@ -1,37 +1,53 @@
 from __future__ import annotations
 
 from collections import defaultdict
+
 from typing import Union, Tuple, Mapping, List, Type, Set
 
 import matplotlib.axes
-import numpy as np
-import shap as sh
-from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
+
+import numpy as np
+
+import shap as sh
+
+from joblib import Parallel, delayed
+
 from scipy.cluster import hierarchy
 from scipy.stats import wilcoxon, betabinom
 from scipy.spatial.distance import squareform
+
 from sklearn.base import TransformerMixin, BaseEstimator, clone, ClassifierMixin
 from sklearn.ensemble import (
     ExtraTreesClassifier,
     HistGradientBoostingClassifier,
     RandomForestClassifier,
 )
-from sklearn.model_selection import cross_val_score
 from sklearn.ensemble._forest import BaseForest
 from sklearn.feature_selection import VarianceThreshold
-from sklearn.metrics import pairwise_distances, balanced_accuracy_score, f1_score, make_scorer
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import pairwise_distances, log_loss
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.utils import check_X_y, resample
 from sklearn.utils.validation import check_is_fitted
+
 from statsmodels.stats.multitest import multipletests
+
+from skrebate import MultiSURF
+
+from umap import UMAP
+
 from imblearn.under_sampling.base import BaseCleaningSampler, BaseUnderSampler
 from imblearn.over_sampling.base import BaseOverSampler
 
-from niapy.problems import Problem
-from niapy.task import Task
-from niapy.algorithms.basic import HarrisHawksOptimization
+from mealpy.swarm_based.NMRA import ImprovedNMRA
+from mealpy.utils.logger import Logger
+from mealpy.utils.problem import Problem
+
+from skbio.stats.distance._cutils import permanova_f_stat_sW_cy
+from skbio.stats.distance._base import _preprocess_input_sng
+from skbio.stats.ordination import pcoa
+from skbio import DistanceMatrix
 
 
 ##################################################################################
@@ -75,12 +91,13 @@ class Scaler(TransformerMixin, BaseEstimator):
 # Utility Classes - Calculation of Dissimilarities for Clustering
 ##################################################################################
 class ETCProx:
-    def __init__(self, n_estimators=1024, min_samples_split=0.33, n_sets=5):
+    def __init__(self, n_estimators=1024, min_samples_split=0.33, n_sets=5, return_clf = False):
         self.n_estimators = n_estimators
         self.min_samples_split = min_samples_split
         self.n_sets = n_sets
+        self.return_clf = return_clf
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
+    def transform(self, X: np.ndarray):
         """
         Transform data using the ETCProx method.
 
@@ -92,7 +109,10 @@ class ETCProx:
         Returns
         -------
         np.ndarray
-            Proximity matrix of shape (n_samples, n_samples).
+            Proximity matrix of shape (n_samples, n_samples)
+            
+        ExtraTreesClassifier
+            If 'return_clf' is True.
         """
         # Randomize class labels (https://inria.hal.science/hal-01667317/file/unsupervised-extremely-randomized_Dalleau_Couceiro_Smail-Tabbone.pdf)
         y_rnd = [0 for _ in range(X.shape[0] // 2)]
@@ -119,7 +139,12 @@ class ETCProx:
         S = np.dot(L, L.T)
         S = S / 1024
         S = 1 - S
-        return np.sqrt(S)
+
+        if self.return_clf:
+            return np.sqrt(S), clf
+
+        else:
+            return np.sqrt(S)
 
 
 ##################################################################################
@@ -139,49 +164,197 @@ class NoResample(TransformerMixin, BaseEstimator):
 
 
 ##################################################################################
-# Utility Classes - SO Problem
+# Utility Classes - Discrete Feature Selection Problem
 ##################################################################################
-def comb_score(y_true, y_pred, **kwargs):
-
-    score_ba = balanced_accuracy_score(y_true, y_pred)
-    score_f1 = f1_score(y_true, y_pred, average = "weighted")
-
-    score = (0.85*score_ba) + (0.15*score_f1)
-
-    return score
-
-class ModelSO(Problem):
-    """
-    Performs PSO to select features
-    """
-
-    def __init__(self, X_train, y_train, model, alpha):
+def f_stat(X, y):
         
-        super().__init__(dimension=X_train.shape[1], lower=0, upper=1)
+    D = DistanceMatrix(pairwise_distances(X, metric = "euclidean").astype(np.float32))
+        
+    SST = D[:] ** 2
+    SST = SST.sum() / X.shape[0]
+    SST = SST / 2.0
+        
+    n_groups, grouping = _preprocess_input_sng(D.ids, X.shape[0], y, None)
+        
+    grouping = np.asarray(grouping)
+        
+    group_sizes = np.bincount(grouping)
+        
+    SSW = permanova_f_stat_sW_cy(DistanceMatrix(D).data,
+                                    group_sizes, 
+                                    grouping)
+        
+    SSA = SST - SSW
+        
+    return (SSW / (X.shape[0] - n_groups)) / (SSA / (n_groups - 1)) # To turn this into a minimization problem
 
-        self.X_train = X_train
-        self.y_train = y_train
-        self.alpha = alpha
-        self.model = model
 
-    def _evaluate(self, x):
+class DSFSProblem(Problem):
 
-        selected = x > 0.5
+    SUPPORTED_ARRAY = (list, tuple, np.ndarray)
+
+    def __init__(self, lb=None, ub=None, minmax="min", X=None, y=None, M = None, **kwargs):
+        r"""Initialize Problem.
+
+        Args:
+            lb (numpy.ndarray, list, tuple): Lower bounds of the problem.
+            ub (numpy.ndarray, list, tuple): Upper bounds of the problem.
+            minmax (str): Minimization or maximization problem (min, max)
+            name (str): Name for this particular problem
+        """
+        self.name, self.log_to, self.log_file = "P", "console", "history.txt"
+        self.n_objs, self.obj_is_list, self.multi_objs = 1, False, False
+        self.n_dims, self.lb, self.ub, self.save_population = None, None, None, False
+        self.X, self.y, self.M = X, y, M
+        self.obj_weights = [0.6, 0.4]
+
+        self.__set_keyword_arguments(kwargs)
+        self.__set_domain_range(lb, ub)
+        self.__set_functions(kwargs)
+        self.logger = Logger(self.log_to, log_file=self.log_file).create_logger(name=f"{__name__}.{__class__.__name__}",
+                                    format_str='%(asctime)s, %(levelname)s, %(name)s [line: %(lineno)d]: %(message)s')
+        self.minmax = minmax
+
+    def __set_keyword_arguments(self, kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def __set_domain_range(self, lb, ub):
+        if type(lb) in self.SUPPORTED_ARRAY and type(ub) in self.SUPPORTED_ARRAY:
+            self.lb = np.array(lb).flatten()
+            self.ub = np.array(ub).flatten()
+            if len(self.lb) == len(self.ub):
+                self.n_dims = len(self.lb)
+                if len(self.lb) < 1:
+                    raise ValueError(f'Dimensions do not qualify. Length(lb) = {len(self.lb)} < 1.')
+            else:
+                raise ValueError(f"Length of lb and ub do not match. {len(self.lb)} != {len(self.ub)}.")
+        else:
+            raise ValueError(f"lb and ub need to be a list, tuple or np.array.")
+
+    def __set_functions(self, kwargs):
+        tested_solution = self.generate_position(self.lb, self.ub)
+        if "amend_position" in kwargs:
+            if not callable(self.amend_position):
+                raise ValueError(f"Use default 'amend_position()' or passed a callable function. {type(self.amend_position)} != function")
+            else:
+                tested_solution = self.amend_position(tested_solution, self.lb, self.ub)
+        result = self.fit_func(tested_solution)
+        if type(result) in self.SUPPORTED_ARRAY:
+            result = np.array(result).flatten()
+            self.n_objs = len(result)
+            self.obj_is_list = True
+            if self.n_objs > 1:
+                self.multi_objs = True
+                if type(self.obj_weights) in self.SUPPORTED_ARRAY:
+                    self.obj_weights = np.array(self.obj_weights).flatten()
+                    if self.n_objs != len(self.obj_weights):
+                        raise ValueError(f"{self.n_objs}-objective problem, but N weights = {len(self.obj_weights)}.")
+                    self.msg = f"Solving {self.n_objs}-objective optimization problem with weights: {self.obj_weights}."
+                else:
+                    raise ValueError(f"Solving {self.n_objs}-objective optimization, need to set obj_weights list with length: {self.n_objs}")
+            elif self.n_objs == 1:
+                self.multi_objs = False
+                self.obj_weights = np.ones(1)
+                self.msg = f"Solving single objective optimization problem."
+            else:
+                raise ValueError(f"fit_func needs to return a single value or a list of values list")
+        elif type(result) in (int, float) or isinstance(result, np.floating) or isinstance(result, np.integer):
+            self.multi_objs = False
+            self.obj_is_list = False
+            self.obj_weights = np.ones(1)
+            self.msg = f"Solving single objective optimization problem."
+        else:
+            raise ValueError(f"fit_func needs to return a single value or a list of values list")
+
+    def fit_func(self, x):
+        """Fitness function
+
+        Args:
+            x (numpy.ndarray): Solution.
+
+        Returns:
+            float: Function value of `x`.
+        """
+        selected = x > 0
+            
         num_selected = selected.sum()
         if num_selected == 0:
-            return 1.0
+            return 1.0           
+                
+        # Subset
+        x_train = self.X[:, selected].astype(float)
+                
+        # Train
+        c1 = cross_validate(self.M, 
+                            x_train, self.y, 
+                            cv = 3, 
+                            scoring = "balanced_accuracy",
+                            return_estimator = True,
+                            return_indices = True,
+                            n_jobs = 5)
+            
+        test_ind = [inds for inds in c1["indices"]["test"]]
+        log_losses_1 = [log_loss(self.y[test_ind[i]], c1["estimator"][i].predict_proba(x_train[test_ind[i]])) for i in range(3)]
+        log_losses_1 = np.asarray(log_losses_1).mean()
+            
+        # Score
+        s_1 = 1 - c1["test_score"].mean()
+        s_2 = np.asarray(log_losses_1).mean()
+        s_3 = f_stat(x_train, self.y)
 
-        accuracy = cross_val_score(self.model,
-                                   self.X_train[:, selected],
-                                   self.y_train,
-                                   cv = 2).mean()
+        num_features = self.X.shape[1]          
+        f_frac = num_selected / num_features
 
-        score = 1 - accuracy
+        o_1 = (0.85 * s_1) + (0.10 * s_2) + (0.05 * s_3)
+        o_2 = f_frac
+            
+        return o_1, o_2
 
-        num_features = self.X_train.shape[1]
+    def get_name(self):
+        """
+        Returns:
+            string: The name of the problem
+        """
+        return self.name
 
-        return self.alpha * score + (1 - self.alpha) * (num_selected / num_features)
+    def get_class_name(self):
+        """Get class name."""
+        return self.__class__.__name__
 
+    def generate_position(self, lb=None, ub=None):
+        """
+        Generate the position depends on the problem. For discrete problem such as permutation, this method can be override.
+
+        Args:
+            lb: list of lower bound values
+            ub: list of upper bound values
+
+        Returns:
+            np.array: the position (the solution for the problem)
+        """
+        pos = np.random.uniform(lb, ub)
+        pos = np.where(pos > 0.4, 1, 0)
+            
+        return pos
+
+    def amend_position(self, position=None, lb=None, ub=None):
+        """
+        The goal is to transform the solution into the right format corresponding to the problem.
+        For example, with discrete problems, floating-point numbers must be converted to integers
+        to ensure the solution is in the correct format.
+
+        Args:
+            position: vector position (location) of the solution.
+            lb: list of lower bound values
+            ub: list of upper bound values
+
+        Returns:
+            Amended position (make the right format of the solution)
+        """
+        position_clipped = np.where(position > 0.4, 1, 0)
+            
+        return position_clipped
 
 
 ##################################################################################
@@ -203,7 +376,7 @@ def beta_binom_test(
     X : np.ndarray
         Data matrix of shape (n_samples, n_features).
     C : int, optional
-        Number of classes, by default 1
+        Number of iterations for FWER correction
     alpha : float, optional
         Significance level, by default 0.05
     p : float, optional
@@ -511,6 +684,7 @@ def global_imps(
     H_shadow: np.ndarray,
     alpha: float = 0.05,
     alternative: str = "two-sided",
+    use_bayes: bool = False
 ) -> np.ndarray:
     """
     Used to calculate if real and shadow features differ significantly.
@@ -531,7 +705,6 @@ def global_imps(
     np.ndarray
         The p-values.
     """
-
     # Calculate p-values associated with each feature using the Wilcoxon Test
     p_vals_raw = []
     for column in range(H_real.shape[1]):
@@ -756,8 +929,73 @@ def update_lists(
     return A_new, T_new, R_new, np.asarray(T_idx)
 
 
+def get_metasamples(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """
+    Inputs:
+
+    X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+    the number of features (taxa, OTUs, ASVs, etc).
+
+    y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+    of 'y' should be a factor.
+
+    Returns:
+
+    final_estimates: NumPy array of shape (n, p) where 'n' is the number of
+    features and 'p' is the number of components (meta-samples).
+    """
+    et_estimates = []
+    ms_estimates = []
+
+    # Estimate multivariate FI Using ETC
+    for _ in range(10):
+        M = ExtraTreesClassifier(512, bootstrap = True).fit(X, y)
+
+        explainer = sh.Explainer(M)
+        
+        s = explainer(X, check_additivity=False).values
+
+        s = np.abs(s)
+
+        if s.ndim > 2:
+            s = s.mean(axis=2)
+
+        s = s.mean(axis=0)
+
+        et_estimates.append(s)
+
+    for _ in range(10):
+        M = ExtraTreesClassifier(512, bootstrap = True, max_depth = 3).fit(X, y)
+
+        explainer = sh.Explainer(M)
+
+        s = explainer(X, check_additivity=False).values
+
+        s = np.abs(s)
+
+        if s.ndim > 2:
+            s = s.mean(axis=2)
+
+        s = s.mean(axis=0)
+
+        et_estimates.append(s)
+
+    # Estimate multivariate FI using MultiSURF
+    for _ in range(10):
+        X_re, y_re = resample(X, y, stratify = y)
+        ms_estimates.append(MultiSURF(n_jobs = 4).fit(X_re, y_re).feature_importances_)
+
+    # Reduce dimensionality with UMAP
+    final_estimates = np.vstack((et_estimates, ms_estimates)).T
+
+    final_estimates = UMAP(n_neighbors = 12, n_components = 4).fit_transform(final_estimates)
+
+    return final_estimates.T
+
+
 def get_clusters(
     X: np.ndarray,
+    y: np.ndarray,
     linkage_method: str,
     T: float,
     criterion: str,
@@ -771,6 +1009,9 @@ def get_clusters(
     ----------
     X : array-like of shape (n_samples, n_features)
         The training input samples.
+
+    y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+    of 'y' should be a factor.
 
     linkage_method : str
         The linkage method to use for hierarchical clustering.
@@ -800,7 +1041,7 @@ def get_clusters(
     """
 
     # Cluster Features
-    X_final, _ = scale_features(X, transformer)
+    X_final = get_metasamples(transformer.fit_transform(X), y)
 
     if type(metric) == ETCProx:
         D = squareform(metric.transform(X_final.T).astype(np.float32))
@@ -830,6 +1071,7 @@ def get_clusters(
         cluster_id_to_feature_ids[cluster_id].append(idx)
 
     selected_clusters_ = list(cluster_id_to_feature_ids)
+
     return selected_clusters_, cluster_id_to_feature_ids, D
 
 
@@ -856,10 +1098,6 @@ def select_features(
     verbose: int,
     n_jobs: int,
     run_stage_2: bool,
-    max_iter_stage_2: int,
-    pop_size: int,
-    levy: float,
-    alpha_2: float
 ):
     """
     Function to run each iteration of the feature selection process.
@@ -871,7 +1109,7 @@ def select_features(
 
     # Get clusters
     selected_clusters_, cluster_id_to_feature_ids, D = get_clusters(
-        X_red, linkage, thresh, criterion, clone(transformer), metric
+        X_red, y, linkage, thresh, criterion, clone(transformer), metric
     )
 
     # Prepare tracking dictionaries
@@ -881,7 +1119,7 @@ def select_features(
 
     T_idx = np.copy(selected_clusters_, "C")
 
-    # Stage 1: Calculate Initial Significance - Only Remove Unimportant Features
+    # Stage 1: Calculate Initial Significance - Only Remove Features
     if verbose > 0:
         print("Stage One: Identifying an initial set of tentative features...")
 
@@ -909,8 +1147,8 @@ def select_features(
         else:
             H_arr.append(H_new)
 
-        if ITERATION >= n_iter_fwer:
-            P_h, P_r = beta_binom_test(H_arr, ITERATION - 4, alpha, p, p2)
+        if ITERATION > n_iter_fwer:
+            P_h, P_r = beta_binom_test(H_arr, ITERATION - n_iter_fwer, alpha, p, p2)
             F_accepted, F_tentative, F_rejected, _ = update_lists(
                 F_accepted, F_tentative, F_rejected, T_idx, P_h, P_r
             )
@@ -921,73 +1159,158 @@ def select_features(
             H_arr = H_arr[:, idx]
             IDX = {x: i for i, x in enumerate(T_idx)}
 
-        if verbose > 0 and ITERATION >= n_iter_fwer:
+            if verbose > 0:
+                print(
+                    f"Round {ITERATION:d} "
+                    f"/ Tentative (Accepted): {len(F_accepted)} "
+                    f"/ Tentative (Not Accepted): {len(F_tentative)} "
+                    f"/ Rejected: {len(F_rejected)}"
+                )
+
+        if verbose > 0 and ITERATION <= n_iter_fwer:
             print(
                 f"Round {ITERATION:d} "
                 f"/ Tentative (Accepted): {len(F_accepted)} "
-                f"/ Tentative (Not Accepted): {len(F_tentative)} "
+                f"/ Tentative (Not Accepted): {len(cluster_id_to_feature_ids)} "
                 f"/ Rejected: {len(F_rejected)}"
             )
 
-        else:
-            print(f"Round {ITERATION:d} "
-                  f"/ Burn-in Phase... "
-                  )
-
+    # Get a list of feature indicies which were selected
     S = []
     rev_cluster_id = {}
     for C in F_accepted:
         for entry in cluster_id_to_feature_ids[C]:
             S.append(entry)
 
-            rev_cluster_id[entry] = C
-
+    # Sort indices in ascending order
     S.sort()
+    S = np.asarray(S)
     S_1 = np.asarray(S)
 
     # Return to original size
-    S1s = np.zeros(shape=(X_red.shape[1],), dtype=int)
+    S1s = np.zeros(shape=(X_red.shape[1],), dtype=bool)
     for entry in S_1:
-        S1s[entry] = 1
+        S1s[entry] = True
     S_1 = nZVF.inverse_transform([S1s])[0]
-    S_1 = np.where(S_1 > 0, True, False)
 
-    # Stage 2: Determine the best feature from each cluster using SO
-    if run_stage_2:
-        if verbose > 0:
-            print("Stage Two: Identifying best features from each cluster...")
+    # Stage 2: Determine the best features from the stage 1 features
+    if (run_stage_2 == "mms") or (run_stage_2 == "auto") or (run_stage_2 == True):
 
-        X_red, zero_samps = scale_features(X_red, transformer)
+        if (run_stage_2 == "mms") or (run_stage_2 == True):
+            if verbose > 0:
+                print("Stage Two: Identifying best features using a modified MultiSURF...")
 
-        S_tmp = nZVF.transform([S_1])[0]
+            F_selector = stage_2_mms(transformer.fit_transform(X_red[:, S]), y, stage_2_estimator)
 
-        P = ModelSO(X_red[:, S_tmp], y[zero_samps], stage_2_estimator, alpha = alpha_2)
-        T = Task(P, max_iters = max_iter_stage_2)
-        A = HarrisHawksOptimization(population_size = pop_size, levy = levy)
-        best_features, best_fitness = A.run(T)
+            S2_features = F_selector.transform(np.asarray([S]))
 
-        S_2 = []
-        for ix, f_val in enumerate(best_features):
-            if f_val > 0.5:
-                S_2.append(S[ix])
+        elif run_stage_2 == "auto":
+            if verbose > 0:
+                print("Stage Two: Identifying best features using swarm optimization...")
 
-        S_2.sort()
-        S_2 = np.asarray(S_2)
+            S2_features, F_selector = stage_2_soa(transformer.fit_transform(X_red[:, S]), y, stage_2_estimator)
+
+            S2_features = S[S2_features]
 
         # Return to original size
-        S2s = np.zeros(shape=(X_red.shape[1],), dtype=int)
-        for entry in S_2:
-            S2s[entry] = 1
+        S2s = np.zeros(shape=(X_red.shape[1],), dtype=bool)
+        for entry in S2_features:
+            S2s[entry] = True
         S_2 = nZVF.inverse_transform([S2s])[0]
-        S_2 = np.where(S_2 > 0, True, False)
 
     if verbose > 0:
         print(f"Final Feature Set Contains {str(S_1.sum())} Features.")
 
-        if run_stage_2:
+        if (run_stage_2 == "mms") or (run_stage_2 == "auto") or (run_stage_2 == True):
             print(f"Final Set of Best Features Contains {str(S_2.sum())} Features.")
 
-    return (S_1, S_2, T, D) if run_stage_2 else (S_1, None, None, D)
+    return (S_1, S_2, F_selector, D) if run_stage_2 else (S_1, None, None, D)
+
+
+from sklearn.model_selection import cross_val_score
+def stage_2_mms(X: np.ndarray, y: np.ndarray, M: Type[ClassifierMixin, BaseEstimator]) -> MultiSURF:
+    """
+    Stage 2 Feature Selection using MultiSURF.
+
+    Inputs:
+
+    X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+    the number of features (taxa, OTUs, ASVs, etc).
+
+    y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+    of 'y' should be a factor.
+
+    Returns:
+
+    best_model: MultiSURF model associated with the best cross-validated 
+    balanced accuracy.
+    """
+
+    scores = []
+    best_model = []
+
+    if X.shape[1] <= 5:
+        n_selected_init = X.shape[1] - 1
+    else:
+        n_selected_init = 5
+
+    for n_selected in [n_selected_init, 10, 20, 30, 40, 50, 60, 70, 
+                       80, 90, 100, 150, 200, 250, 300]:
+
+        if n_selected < X.shape[1]:
+
+            MMS_model = MultiSURF(n_selected, n_jobs = 6).fit(X, y)
+
+            X_trf = MMS_model.transform(X)
+
+            score = cross_val_score(estimator = M,
+                                    X = X_trf, y = y,
+                                    scoring = "balanced_accuracy",
+                                    cv = 5,
+                                    n_jobs = 5).mean()
+
+            scores.append(score)
+            best_model.append(MMS_model)
+
+        else:
+            break
+
+    best_score = np.argmax(scores)
+
+    return best_model[best_score]
+
+
+def stage_2_soa(X: np.ndarray, y: np.ndarray, M: Type[ClassifierMixin, BaseEstimator]) -> Tuple[np.ndarray, ImprovedNMRA]:
+    """
+    Stage 2 Feature Selection using Swarm Optimization.
+
+    Inputs:
+
+    X: NumPy array of shape (m, n) where 'm' is the number of samples and 'n'
+    the number of features (taxa, OTUs, ASVs, etc).
+
+    y: NumPy array of shape (m,) where 'm' is the number of samples. Each entry
+    of 'y' should be a factor.
+
+    Returns:
+
+    best_features: NumPy array of shape (n,) of the mask of the best selected
+    features.
+    """
+
+    FS_problem = DSFSProblem(lb = np.zeros(shape = (X.shape[1]), dtype = int),
+                                        ub = np.ones(shape = (X.shape[1]), dtype = int),
+                                        name = "FS",
+                                        minmax = "min",
+                                        X = X, 
+                                        y = y,
+                                        M = M)
+
+    model = ImprovedNMRA(epoch = 20, pop_size = 30)
+    best_features, _ = model.solve(problem = FS_problem)
+    best_features = best_features > 0.4
+
+    return best_features, model
 
 
 ##################################################################################
@@ -1010,8 +1333,8 @@ class Triglav(TransformerMixin, BaseEstimator):
     estimator: default = ExtraTreesClassifier(512, bootstrap = True)
         The estimator used to calculate Shapley scores.
     stage_2_estimator: default = ExtraTreesClassifier(512)
-        The estimator used to calculate SAGE values. Only used if the
-        'run_stage_2' is set to True.
+        The estimator used to calculate MultiSURF CV scores. 
+        Only used if the 'run_stage_2' is set to True or 'mms'.
     per_class_imp: bool, default = False
         Specifies if importance scores are calculated globally or per
         class. Note, per class importance scores are calculated in a
@@ -1026,33 +1349,24 @@ class Triglav(TransformerMixin, BaseEstimator):
     p_2: float, default = 0.30
         Used to determine the shape of the Beta-Binomial distribution
         modelling misses.
-    metric: str, default = "correlation"
+    metric: str, default = "euclidean"
         The dissimilarity measure used to calculate distances between
         features.
-    linkage: str, default = "complete"
+    linkage: str, default = "ward"
         The type of hierarchical clustering method to apply. The available
         methods include: single, complete, ward, average, centroid.
     thresh: float, default = 2.0
         The threshold or max number of clusters.
     criterion: str, default = "distance"
         The method used to form flat clusters. The available methods
-        include: distance, maxclust.
+        include: distance or maxclust.
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
-    run_stage_2: bool, default = True
-        This stage will determine the best feature subset using
-        the harris hawks (HHO) algorithm.
-    max_iter_stage_2: int, default = 100
-        The maximum number of iterations the HHO algorithm will
-        run.
-    pop_size: int, default = 30
-        The population size.
-    levy: float, default = 0.01
-        Controls how quickly the HHO algorithm converges
-        to a local or global minimum.
-    alpha_2: float, default = 0.99
-        The weight used to balance model generalization or
-        number of features selected by the HHO algorithm.
+    run_stage_2: str or bool, default = "mms"
+        This stage will determine the best features from the selected
+        Triglav features. If 'str' is "auto", swarm optimization is used.
+        If "mms" (default), a modified version of the MultiSURF algorithm
+        is used. If True, "mms" is used. If False, stage 2 is not run.
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
     n_jobs: int, default = 10
@@ -1063,23 +1377,19 @@ class Triglav(TransformerMixin, BaseEstimator):
         self,
         transformer=NoScale(),
         sampler=NoResample(),
-        estimator=ExtraTreesClassifier(512, bootstrap=True),
-        stage_2_estimator=ExtraTreesClassifier(512),
+        estimator: Type[ClassifierMixin, BaseEstimator] = ExtraTreesClassifier(512, bootstrap=True),
+        stage_2_estimator: Type[ClassifierMixin, BaseEstimator] = ExtraTreesClassifier(512),
         per_class_imp: bool = False,
         n_iter: int = 40,
         n_iter_fwer: int = 11,
         p_1: float = 0.65,
         p_2: float = 0.30,
-        metric: Union[str, ETCProx] = "correlation",
-        linkage: str = "complete",
+        metric: Union[str, ETCProx] = "euclidean",
+        linkage: str = "ward",
         thresh: Union[int, float] = 2.0,
         criterion: str = "distance",
         alpha: float = 0.05,
-        run_stage_2: bool = True,
-        max_iter_stage_2: int = 100,
-        pop_size: int = 30,
-        levy: float = 0.01,
-        alpha_2: float = 0.99,
+        run_stage_2: Union[str, bool] = "mms",
         verbose: int = 0,
         n_jobs: int = 10,
     ):
@@ -1101,10 +1411,6 @@ class Triglav(TransformerMixin, BaseEstimator):
         self.criterion = criterion
         self.alpha = alpha
         self.run_stage_2 = run_stage_2
-        self.max_iter_stage_2 = max_iter_stage_2
-        self.pop_size = pop_size
-        self.levy = levy
-        self.alpha_2 = alpha_2
         self.verbose = verbose
         self.n_jobs = n_jobs
 
@@ -1132,7 +1438,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         (
             self.selected_,
             self.selected_best_,
-            self.task_opt_,
+            self.stage_2_model_,
             self.linkage_matrix_,
         ) = select_features(
             transformer=self.transformer,
@@ -1153,10 +1459,6 @@ class Triglav(TransformerMixin, BaseEstimator):
             criterion=self.criterion,
             verbose=self.verbose,
             run_stage_2=self.run_stage_2,
-            max_iter_stage_2=self.max_iter_stage_2,
-            pop_size=self.pop_size,
-            levy=self.levy,
-            alpha_2=self.alpha_2,
             n_jobs=self.n_jobs,
         )
 
@@ -1243,6 +1545,7 @@ class Triglav(TransformerMixin, BaseEstimator):
         # Get clusters
         _, _, D = get_clusters(
             X_red,
+            y,
             self.linkage,
             self.thresh,
             self.criterion,
@@ -1255,7 +1558,7 @@ class Triglav(TransformerMixin, BaseEstimator):
 
         return hierarchy.dendrogram(D, ax=ax, **dendrogram_kwargs)
 
-    def _check_params(self, X, y):
+    def _check_params(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
         crit_set = {
             "distance",
@@ -1289,43 +1592,87 @@ class Triglav(TransformerMixin, BaseEstimator):
             "yule",
         }
 
+        stage_2_params = {"mms", "auto", True, False}
+
         # Check if X and y are consistent
         X_in, y_in = check_X_y(X, y, estimator="Triglav")
 
-        # Basic check on parameter bounds
-        if self.alpha <= 0 or self.alpha > 1:
-            raise ValueError("The 'alpha' parameter should be between 0 and 1.")
+        # Basic check on parameter bounds and types
 
-        if (self.p_1 <= 0 or self.p_1 > 1) or (self.p_2 <= 0 or self.p_2 > 1):
-            raise ValueError("The 'p' parameter should be between 0 and 1.")
+        # Check the alpha parameter
+        if isinstance(self.alpha, float):
+            if self.alpha <= 0 or self.alpha > 1:
+                raise ValueError("The 'alpha' parameter should be a float between 0 and 1.")
+        else:
+            raise TypeError("The 'alpha' parameter should be a float between 0 and 1.")
 
-        if self.verbose < 0:
+        # Check parameters of the beta-binomial distributions
+        if isinstance(self.p_1, float):
+            if (self.p_1 <= 0) or (self.p_1 > 1):
+                raise ValueError("The 'p_1' parameter should be a float between 0 and 1.")
+        else:
+            raise TypeError("The 'p_1' parameter should be a float between 0 and 1.")
+
+        if isinstance(self.p_2, float):
+            if (self.p_2 <= 0) or (self.p_2 > 1):
+                raise ValueError("The 'p_2' parameter should be a float between 0 and 1.")
+        else:
+            raise TypeError("The 'p_2' parameter should be a float between 0 and 1.")
+
+        # Check verbose parameter`
+        if isinstance(self.verbose, int):
+            if self.verbose < 0:
+                raise ValueError(
+                    "The 'verbose' parameter should be greater than or equal to zero."
+                )
+        else:
+            raise TypeError("The 'verbose' parameter should be an integer greater than \
+            or equal to 0.")
+
+        # Check iteration parameters
+        if isinstance(self.n_iter, int):
+            if self.n_iter <= 0:
+                raise ValueError("The 'max_iter' parameter should be at least one.")
+        else:
+            raise TypeError("The 'n_iter' parameter should be an integer greater than \
+            or equal to 0.")
+
+        if isinstance(self.n_iter_fwer, int):
+            if self.n_iter_fwer <= 0:
+                raise ValueError("The 'n_iter_fwer' parameter should be at least one.")
+        else:
+            raise TypeError("The 'n_iter_fwer' parameter should be an integer greater than \
+            or equal to 0.")
+
+        if isinstance(self.n_jobs, int):
+            if self.n_jobs <= 0:
+                raise ValueError(
+                    "The 'n_jobs' parameter should be greater than or equal to one."
+                )
+        else:
+            raise TypeError("The 'n_jobs' parameter should be an integer greater than \
+            or equal to 1.")
+
+        # Check clustering parameters
+        if isinstance(self.thresh, int) or isinstance(self.thresh, float):
+            if self.thresh <= 0:
+                raise ValueError("The 'thresh' parameter should be greater than one.")
+        else:
+            raise TypeError("The 'thresh' parameter should be an integer or float \
+            greater than or equal to 1.")
+
+        if self.metric in metrics:
+            pass
+        elif isinstance(self.metric, ETCProx):
+            pass
+        else:
             raise ValueError(
-                "The 'verbose' parameter should be greater than or equal to zero."
-            )
-
-        if self.n_iter <= 0:
-            raise ValueError("The 'max_iter' parameter should be at least one.")
-
-        if self.n_iter_fwer <= 0:
-            raise ValueError("The 'n_iter_fwer' parameter should be at least one.")
-
-        if self.n_jobs <= 0:
-            raise ValueError(
-                "The 'n_jobs' parameter should be greater than or equal to one."
-            )
-
-        if self.thresh <= 0:
-            raise ValueError("The 'thresh' parameter should be greater than one.")
-
-        if self.metric not in metrics and type(self.metric) != ETCProx:
-            raise ValueError(
-                "The 'metric' parameter should be one supported by Scikit-Learn or 'ETCProx'."
-            )
+                    "The 'metric' parameter should be one supported by Scikit-Learn or 'ETCProx'."
+                )
 
         if self.criterion not in crit_set:
             raise ValueError(
-                "The 'criterion' parameter should be 'distance' or 'maxclust'."
+                "The 'criterion' parameter should be either 'distance' or 'maxclust'."
             )
 
         if self.linkage not in link_set:
@@ -1333,22 +1680,9 @@ class Triglav(TransformerMixin, BaseEstimator):
                 "The 'linkage' parameter should one supported in 'scipy.hierarchy'."
             )
 
-        if type(self.run_stage_2) is not bool:
-            raise ValueError("The 'run_stage_2' parameter should be True or False.")
-
-        if type(self.max_iter_stage_2) is not int or (type(self.max_iter_stage_2) is int and self.max_iter_stage_2 <= 0):
-            raise ValueError("The 'max_iter_stage_2' parameter should be an integer and greater than 0.")
-
-        if type(self.pop_size) is not int or (type(self.pop_size) is int and self.pop_size <= 0):
-            raise ValueError("The 'pop_size' parameter should be an integer and greater than 0.")
-
-        if type(self.levy) is not float or (type(self.levy) is float and self.levy <= 0):
-            raise ValueError("The 'levy' parameter should be a float and greater than 0.")
-
-        if type(self.alpha_2) is not float or (type(self.alpha_2) is float and self.alpha_2 <= 0):
-            raise ValueError("The 'alpha_2' parameter should be a float and greater than 0.")
-
-        if type(self.per_class_imp) is not bool:
-            raise ValueError("The 'per_class_imp' parameter should be True or False.")
+        # Check stage 2 parameter
+        if self.run_stage_2 not in stage_2_params:
+            raise ValueError("The 'run_stage_2' parameter should be a string set to 'auto' or 'mms' \
+            or set to True or False")
 
         return X_in, y_in

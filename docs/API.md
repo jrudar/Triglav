@@ -8,7 +8,7 @@ of the `Triglav` class and its methods.
     class triglav.Triglav(transformer = NoScale(), sampler = NoResample(), estimator = ExtraTreesClassifier(512, bootstrap = True),
                   stage_2_estimator = ExtraTreesClassifier(512, bootstrap = True), per_class_imp = False,
                   n_iter = 40, n_iter_fwer = 11, p_1 = 0.65, p_2 = 0.30, metric = "correlation", linkage = "complete",
-                  thresh = 2.0, criterion = "distance", run_stage_2 = True, max_iter_sage_2 = 100, pop_size = 30, levy = 0.01,
+                  thresh = 2.0, criterion = "distance", run_stage_2 = True, max_iter_sage_2 = 100, algo = HarrisHawksOptimization(),
                   alpha_2 = 0.99, verbose = 0, n_jobs = 10)
 
 ### Parameters
@@ -78,12 +78,8 @@ of the `Triglav` class and its methods.
         The maximum number of iterations the HHO algorithm will
         run.
 
-    pop_size: int, default = 30
-        The population size.
-
-    levy: float, default = 0.01
-        Controls how quickly the HHO algorithm converges
-        to a local or global minimum.
+    algo: Algorithm, default = HarrisHawksOptimization()
+        A NiaPy algorithm.
 
     alpha_2: float, default = 0.99
         The weight used to balance model generalization or
