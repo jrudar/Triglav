@@ -1,10 +1,10 @@
 from triglav import Triglav, ETCProx, NoScale, Scaler, NoResample
 
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.svm import LinearSVC
 
 import pandas as pd
 
@@ -120,11 +120,6 @@ def test_triglav_basic():
 
     # Identify predictive features
     model.fit(X_train, y_train)
-
-    features_selected = model.selected_
-    features_best = model.selected_best_
-
-    from sklearn.metrics import balanced_accuracy_score
 
     s1 = (
         ExtraTreesClassifier(512)

@@ -26,8 +26,8 @@ from sklearn.ensemble import (
 from sklearn.ensemble._forest import BaseForest
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.metrics import pairwise_distances, log_loss
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_validate, cross_val_score
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils import check_X_y, resample
 from sklearn.utils.validation import check_is_fitted
 
@@ -46,7 +46,6 @@ from mealpy.utils.problem import Problem
 
 from skbio.stats.distance._cutils import permanova_f_stat_sW_cy
 from skbio.stats.distance._base import _preprocess_input_sng
-from skbio.stats.ordination import pcoa
 from skbio import DistanceMatrix
 
 
@@ -81,8 +80,6 @@ class Scaler(TransformerMixin, BaseEstimator):
 
     def fit_transform(self, X, y=None, **fit_params):
         self.zero_samps = np.where(np.sum(X, axis=1) == 0, False, True)
-
-        row_sums = np.sum(X, axis=1)[self.zero_samps]
 
         return X[self.zero_samps] / np.sum(X[self.zero_samps], axis=1)[:, None]
 
@@ -167,6 +164,7 @@ class NoResample(TransformerMixin, BaseEstimator):
 ##################################################################################
 # Utility Classes - Discrete Feature Selection Problem
 ##################################################################################
+# The code for the f_stat() function was adapted from Scikit-Bio's PerMANOVA
 def f_stat(X, y):
     D = DistanceMatrix(pairwise_distances(X, metric="euclidean").astype(np.float32))
 
@@ -189,6 +187,7 @@ def f_stat(X, y):
     )  # To turn this into a minimization problem
 
 
+# The Problem code below was adapted from the MealPy Problem class
 class DSFSProblem(Problem):
     SUPPORTED_ARRAY = (list, tuple, np.ndarray)
 
@@ -1012,7 +1011,9 @@ def get_metasamples(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     # Reduce dimensionality with UMAP
     final_estimates = np.vstack((et_estimates, ms_estimates)).T
 
-    final_estimates = UMAP(n_neighbors=12, n_components=4).fit_transform(
+    final_estimates = UMAP(n_neighbors=12, 
+                           n_components=4,
+                           metric = "mahalanobis").fit_transform(
         final_estimates
     )
 
@@ -1203,7 +1204,6 @@ def select_features(
 
     # Get a list of feature indicies which were selected
     S = []
-    rev_cluster_id = {}
     for C in F_accepted:
         for entry in cluster_id_to_feature_ids[C]:
             S.append(entry)
@@ -1258,9 +1258,6 @@ def select_features(
             print(f"Final Set of Best Features Contains {str(S_2.sum())} Features.")
 
     return (S_1, S_2, F_selector, D) if run_stage_2 else (S_1, None, None, D)
-
-
-from sklearn.model_selection import cross_val_score
 
 
 def stage_2_mms(

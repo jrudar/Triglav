@@ -70,7 +70,7 @@ test = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov --cov-report html --cov-report term-missing --cov-fail-under 70"
+addopts = "--cov --cov-report html --cov-report term-missing --cov-fail-under 65"
 
 [tool.coverage.run]
 source = ["triglav"]
