@@ -7,29 +7,24 @@ of the `Triglav` class and its methods.
 
     class triglav.Triglav(transformer = NoScale(), sampler = NoResample(), estimator = ExtraTreesClassifier(512, bootstrap = True),
                   stage_2_estimator = ExtraTreesClassifier(512, bootstrap = True), per_class_imp = False,
-                  n_iter = 40, n_iter_fwer = 11, p_1 = 0.65, p_2 = 0.30, metric = "correlation", linkage = "complete",
+                  n_iter = 40, n_iter_fwer = 11, p_1 = 0.65, p_2 = 0.30, metric = "euclidean", linkage = "ward",
                   thresh = 2.0, criterion = "distance", run_stage_2 = True, verbose = 0, n_jobs = 10)
 
 ### Parameters
 
     transformer: default = NoScale()
-        The transformer to be used to scale features. One can use
-        the scikit-learn.preprocessing transformers. In addition,
-        CLR and Scaler (converts each row into frequencies) are
-        available by importing 'CLRTransformer' and 'Scaler' from the
-        'triglav' package.
-	
+        The transformer to be used to scale features.
+
     sampler: default = NoResample()
-        The resampling method used for imbalanced classes. Should be
-        compatable with 'imblearn' or use an 'imblearn' resampler.
+        The type of sampler (from Imbalanced-learn) to use.
 
     estimator: default = ExtraTreesClassifier(512, bootstrap = True)
         The estimator used to calculate Shapley scores.
 
     stage_2_estimator: default = ExtraTreesClassifier(512)
-        The estimator used to calculate SAGE values. Only used if the
-        'run_stage_2' is set to True.
-	
+        The estimator used to calculate MultiSURF CV scores.
+        Only used if the 'run_stage_2' is set to True or 'mms'.
+
     per_class_imp: bool, default = False
         Specifies if importance scores are calculated globally or per
         class. Note, per class importance scores are calculated in a
@@ -47,14 +42,13 @@ of the `Triglav` class and its methods.
 
     p_2: float, default = 0.30
         Used to determine the shape of the Beta-Binomial distribution
-        modelling failures.
+        modelling misses.
 
-    metric: str, default = "correlation"
+    metric: str, default = "euclidean"
         The dissimilarity measure used to calculate distances between
-        features. To use Extremely Randomized Trees proximities one
-        has to import 'ETCProx' from the 'triglav' package.
+        features.
 
-    linkage: str, default = "complete"
+    linkage: str, default = "ward"
         The type of hierarchical clustering method to apply. The available
         methods include: single, complete, ward, average, centroid.
 
@@ -63,15 +57,16 @@ of the `Triglav` class and its methods.
 
     criterion: str, default = "distance"
         The method used to form flat clusters. The available methods
-        include: inconsistent, distance, maxclust, monocrit,
-        maxclust_monocrit.
+        include: distance or maxclust.
 
     alpha: float, default = 0.05
         The level at which corrected p-values will be rejected.
 
-    run_stage_2: bool, default = True
-        This stage will determine the best feature from each of the
-        selected clusters by calculating SAGE values.
+    run_stage_2: str or bool, default = "mms"
+        This stage will determine the best features from the selected
+        Triglav features. If 'str' is "auto", swarm optimization is used.
+        If "mms" (default), a modified version of the MultiSURF algorithm
+        is used. If True, "mms" is used. If False, stage 2 is not run.
 
     verbose: int, default = 0
         Specifies if basic reporting is sent to the user.
@@ -94,10 +89,8 @@ of the `Triglav` class and its methods.
         The mask of the best features from each cluster. Only returns an ndarray
         if the 'run_stage_2' parameter is enabled.
 
-    self.sage_values_: SAGE Explanation Object
-        A SAGE explanation object created using the set of features in 'selected_'.
-        For a detailed explanation on how to use this object, please visit:
-        https://github.com/iancovert/sage
+    self.task_opt_: Task Object
+        MealPy task optimizer object.
 
     linkage_matrix_: ndarray
         The SciPy hierarchical clustering encoded as a linkage matrix.
@@ -206,8 +199,6 @@ of the `Triglav` class and its methods.
 
     class triglav.Scaler()
 
-    class triglav.CLRTransformer()
-
     class triglav.NoResample()
 
 ### Parameters
@@ -237,6 +228,5 @@ of the `Triglav` class and its methods.
 
         NoScale will return X
         Scaler will return the closure of X (all rows sum to one, X must be non-negative)
-        CLRTransformer will return the CLR Transform of X (X must be non-negative)
         NoResample will return X
 

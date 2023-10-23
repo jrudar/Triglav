@@ -29,8 +29,10 @@ modifications:
    to the 'n_iter_fwer' parameter. For a cluster to be rejected a similar round
    of reasoning applies. Clusters that are not rejected remain tentative.
 
-4) After the iterative refinement stage SAGE scores could be used to select
-   the best feature from each cluster.
+4) After the iterative refinement a swarm intelligence algorithm, naked mole rat
+   algorithm, is used to select the most informative feature subset. The user can
+   also choose to use the MultiSURF algorithm as an alternative to swarm
+   intelligence.
 
 While this method may not produce all features important for classification,
 it does have some nice properties. First of all, by using an Extremely 
