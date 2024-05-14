@@ -111,7 +111,7 @@ class ETCProx:
         ).fit(X_stacked, y_f)
 
         L = clf.apply(X)
-        L = OneHotEncoder(sparse=False).fit_transform(L)
+        L = OneHotEncoder(sparse_output=False).fit_transform(L)
         S = np.dot(L, L.T)
         S = S / 1024
         S = 1 - S
